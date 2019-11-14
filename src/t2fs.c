@@ -11,27 +11,38 @@
 
 typedef struct t2fs_superbloco superbloco;
 superbloco Super;
-//
-//struct mbr {
-//    unsigned char versao;
-//    unsigned char versao;
-//    unsigned char versao;
-//    unsigned char versao;
-//    unsigned char versao;
-//    unsigned char versao;
-//    unsigned char versao;
-//    unsigned char versao;
-//
-//}
 
-int sal(){
+typedef struct mbr {
+    unsigned short int versao;
+    unsigned short int tam_setor;
+    unsigned short int inicioTabelaParticoes;
+    unsigned short int qntParticoes;
+    int endPrimeiroBlocoPartZero;
+    int endUltimoBlocoPartZero;
+    char nomePartZero[24];
+    int endPrimeiroBlocoPartUm;
+    int endUltimoBlocoPartUm;
+    char nomePartUm[24];
+    int endPrimeiroBlocoPartDois;
+    int endUltimoBlocoPartDois;
+    char nomePartDois[24];
+    int endPrimeiroBlocoPartTres;
+    int endUltimoBlocoPartTres;
+    char nomePartTres[24];
+} mbr_data;
+
+
+int sal()
+{
+    mbr_data* mbrData;
+
+
+
     char buffer[SECTOR_SIZE] = {'c'};
-    printf(" oiioi\n");
-    printf(" %d" ,read_sector(0, buffer));
-
-    printf(" li o buffalo %d\n", strlen(buffer));
+    read_sector(0, buffer);
     int i = 0;
     int j = 0;
+
 
     for (i = 0; i < 256; i ++) {
         for (j = 0; j < 8; j ++){
@@ -39,6 +50,27 @@ int sal(){
         }
         printf("\n");
     }
+
+    printf("\n\n\n");
+    int versao = 0;
+    unsigned int mask = 0;
+    unsigned int shift = 0;
+
+    for (i = 0; i < 2; i ++) {
+        if (i == 0) {
+            mask = 255;
+            shift = 0;
+        }
+        else {
+            mask = 65280;
+            shift = 8;
+        }
+        versao = versao | ((4294967295 & buffer[i]) << shift);
+    }
+    printf("%d\n", versao);
+
+
+
     return 0;
 }
 //int readSuper()
