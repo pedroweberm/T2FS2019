@@ -1,4 +1,3 @@
-
 /**
 */
 #include <stdio.h>
@@ -9,6 +8,51 @@
 #include "../include/apidisk.h"
 #include "../include/bitmap2.h"
 #include "../include/t2disk.h"
+
+typedef struct t2fs_superbloco superbloco;
+superbloco Super;
+//
+//struct mbr {
+//    unsigned char versao;
+//    unsigned char versao;
+//    unsigned char versao;
+//    unsigned char versao;
+//    unsigned char versao;
+//    unsigned char versao;
+//    unsigned char versao;
+//    unsigned char versao;
+//
+//}
+
+int sal(){
+    char buffer[SECTOR_SIZE];
+    printf(" oiioi\n");
+    printf(" %d" ,read_sector(0, buffer));
+
+    printf(" li o buffalo %d\n", strlen(buffer));
+    int i = 0;
+    for (i = 0; i < strlen(buffer); i ++)
+        printf("%c\n", buffer[i]);
+    return 0;
+}
+int readSuper()
+{
+    unsigned char buffer[SECTOR_SIZE];
+    if(read_sector(0, buffer) != 0)
+    {
+        printf("Error: Failed reading sector 0!\n");
+        return -1;
+    }
+    strncpy(Super.id, (char*)buffer, 4);
+    Super.version = *( (DWORD*)(buffer + 4) );
+    Super.superblockSize = *( (WORD*)(buffer + 6) );
+    Super.freeBlocksBitmapSize = *( (WORD*)(buffer + 8) );
+    Super.freeInodeBitmapSize = *( (WORD*)(buffer + 10) );
+    Super.inodeAreaSize = *( (WORD*)(buffer + 12) );
+    Super.blockSize = *( (WORD*)(buffer + 14) );
+    Super.diskSize = *( (DWORD*)(buffer + 16) );
+    return 0;
+}
 
 /*-----------------------------------------------------------------------------
 Função:	Informa a identificação dos desenvolvedores do T2FS.
@@ -41,7 +85,27 @@ Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para
 -----------------------------------------------------------------------------*/
 int format2(int partition, int sectors_per_block)
 {
-    return -1;
+
+    for(i = 0; i < Super.diskSize; i++)
+        setBitmap2(BITMAP_DADOS, i, 0);
+
+    for ( i = 0; i < Super.SuperSize; i++)
+        setBitmap2(BITMAP_DADOS, i, 1);
+
+    for ( i = 0; i < Super.freeBlockBitmapSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.SuperSize + i, 1);
+
+    for ( i =0; i < Super.freeInodeBitmapSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.SuperSize + Super.freeBlocksBitmapSize + i, 1);
+
+    for ( i = 0; i< Super.inodeAreaSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.SuperSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
+
+    for (i = 0; i < Super.inodeAreaSize * iNodesPerSector * Super.blockSize; i++)
+        setBitmap2(BITMAP_INODE, i, 0);
+
+    setBitmap2(BITMAP_INODE, 0, 1);
+
 }
 
 /*-----------------------------------------------------------------------------
@@ -49,7 +113,7 @@ Função:	Monta a partição indicada por "partition" no diretório raiz
 -----------------------------------------------------------------------------*/
 int mount(int partition)
 {
-    return -1;
+
 }
 
 /*-----------------------------------------------------------------------------
