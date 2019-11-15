@@ -5,7 +5,7 @@
 int main()
 {
     printf("Main\n");
-    sal();
+    readMbr();
     printf("salzinho\n");
     return 0;
 }
