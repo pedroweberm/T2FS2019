@@ -5,7 +5,8 @@
 int main()
 {
     printf("Main\n");
-    readMbr();
-    printf("salzinho\n");
+    printf(" %d", sizeof(unsigned short int));
+    logMbr();
+    readSuper(0, 256);
     return 0;
 }
