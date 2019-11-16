@@ -506,7 +506,6 @@ void cmdFormat(void) {
         printf ("Invalid block size\n");
         return;
     }
-
     int err = format2 (0, sectors_per_block);
     if (err) {
         printf ("Error: %d\n", err);

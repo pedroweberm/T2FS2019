@@ -36,6 +36,19 @@ typedef struct mbr
 
 mbr_data mbrData;
 superbloco Super;
+int initialized = 0;
+
+int initT2FS () {
+    if (initialized == 0) {
+        if (read_sector(0, (BYTE *)&mbrData) != 0) {
+            printf("Error while reading MBR\n");
+            return -1;
+        }
+        initialized = 1;
+    }
+
+    return 0;
+}
 
 int roundUp(float x){
     if (x - (int) x > 0){
@@ -47,8 +60,6 @@ int roundUp(float x){
 
 int logMbr()
 {
-    read_sector(0, (BYTE *)&mbrData);
-
     printf("VERSAO = %d\n", mbrData.versao);
     printf("TAM_SETOR = %d\n", mbrData.tam_setor);
     printf("INICIO TABELA = %d\n", mbrData.inicioTabelaParticoes);
@@ -119,26 +130,28 @@ int readSuper(int partition)
 ///*-----------------------------------------------------------------------------
 //Função:	Informa a identificação dos desenvolvedores do T2FS.
 //-----------------------------------------------------------------------------*/
-//int identify2 (char *name, int size)
-//{
-//    int i = 0;
-//    char names[71] = {0};
-//
-//    strcpy (names, "Demetrio Boeira - 297693\nGustavo Lorentz - 287681\nPedro Weber - 287678\n");
-//
-//    for (i=0; i < size; i++)
-//    {
-//        name[i] = names[i];
-//    }
-//
-//    if (strcmp(names, name) == 0)
-//    {
-//        return 0;
-//    }
-//
-//
-//    return -1;
-//}
+int identify2 (char *name, int size)
+{
+    initT2FS();
+
+    int i = 0;
+    char names[71] = {0};
+
+    strcpy (names, "Demetrio Boeira - 297693\nGustavo Lorentz - 287681\nPedro Weber - 287678\n");
+
+    for (i=0; i < size; i++)
+    {
+        name[i] = names[i];
+    }
+
+    if (strcmp(names, name) == 0)
+    {
+        return 0;
+    }
+
+
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Formata logicamente uma partição do disco virtual t2fs_disk.dat para o sistema de
@@ -147,9 +160,10 @@ int readSuper(int partition)
 //-----------------------------------------------------------------------------*/
 int format2(int partition, int sectors_per_block)
 {
-//    readSuper(partition);
+    initT2FS();
+
     int i = 0;
-    strcpy(Super.id, "T2FS\0");
+    strcpy(Super.id, "T2FS");
     Super.version = 32306;
     Super.superblockSize = 1;
     Super.blockSize = sectors_per_block;
@@ -171,15 +185,34 @@ int format2(int partition, int sectors_per_block)
         Super.diskSize = mbrData.endUltimoBlocoPartTres - mbrData.endPrimeiroBlocoPartTres + 1;
         firstSector = mbrData.endPrimeiroBlocoPartTres;
     }
-    printf("DISK SIZE = %d e BLOCK SIZE = %d\n", Super.diskSize, Super.blockSize);
-    Super.inodeAreaSize = roundUp(0.1 * Super.diskSize);
+    printf("\nDISK SIZE = %d e BLOCK SIZE = %d\n", Super.diskSize, Super.blockSize);
 
-    Super.freeInodeBitmapSize = roundUp( (float) ( (float) Super.inodeAreaSize / ( (float) SECTOR_SIZE * 8.0 * (float) Super.blockSize)));
-    Super.freeBlocksBitmapSize = roundUp( (float) (0.9 * (float) Super.diskSize / ((float) SECTOR_SIZE * 8.0 * (float) Super.blockSize)));
+    float rawInodeAreaSize = 0.1f * ((float)Super.diskSize);
+    Super.inodeAreaSize = roundUp(rawInodeAreaSize);
+
+    int numberOfInodes = roundUp((float)(((float)(Super.inodeAreaSize * SECTOR_SIZE)) / 32.0f));
+
+    int inodeBitmapSizeBytes = roundUp((float)numberOfInodes / 8.0f);
+    float rawfreeInodeBitmapSizeBlocks = inodeBitmapSizeBytes / (float)(sectors_per_block * SECTOR_SIZE);
+
+    Super.freeInodeBitmapSize = roundUp(rawfreeInodeBitmapSizeBlocks);
+
+    int blockAreaSizeSectors = Super.diskSize - Super.inodeAreaSize;
+
+    int numberOfBlocks = roundUp((float)(((float)(blockAreaSizeSectors)) / Super.blockSize));
+
+    int blocksBitmapSizeBytes = roundUp((float)numberOfBlocks / 8.0f);
+    float rawfreeBlocksBitmapSizeBlocks = blocksBitmapSizeBytes / (float)(sectors_per_block * SECTOR_SIZE);
+
+    Super.freeBlocksBitmapSize = roundUp(rawfreeBlocksBitmapSizeBlocks);
 
 //    printf("RESULTADO DA CONTA = %.20f\n", (Super.inodeAreaSize / (SECTOR_SIZE * 8.0 * Super.blockSize)));
-//    printf("INodeAreaSize = %d e FreeINodeBitmapSize = %d e BlockSize = %d\n", Super.inodeAreaSize, Super.freeInodeBitmapSize, Super.blockSize );
-    int iNodesPerSector = roundUp(Super.inodeAreaSize / (Super.freeInodeBitmapSize * Super.blockSize));
+    printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
+    printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", blockAreaSizeSectors * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
+
+    int iNodesPerSector = roundUp((float)(((float) Super.inodeAreaSize) / ((float) Super.freeInodeBitmapSize * (float) Super.blockSize)));
+
+    //printf("inode bitmapsize = %d\nblocks bitmapszie = %d\ninodes persectr = %d\n", Super.freeInodeBitmapSize, Super.freeBlocksBitmapSize, iNodesPerSector);
 
     for(i = 0; i < Super.diskSize; i++)
         setBitmap2(BITMAP_DADOS, i, 0);
@@ -196,7 +229,7 @@ int format2(int partition, int sectors_per_block)
     for ( i = 0; i< Super.inodeAreaSize; i++)
         setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
 
-    for (i = 0; i < Super.inodeAreaSize * iNodesPerSector * Super.blockSize; i++)
+    for (i = 0; i < numberOfInodes * Super.blockSize; i++) //usei numberOfInodes ao inves de Super.inodeAreaSize * iNodesPerSector
         setBitmap2(BITMAP_INODE, i, 0);
 
     setBitmap2(BITMAP_INODE, 0, 1);
@@ -210,18 +243,18 @@ int format2(int partition, int sectors_per_block)
 ///*-----------------------------------------------------------------------------
 //Função:	Monta a partição indicada por "partition" no diretório raiz
 //-----------------------------------------------------------------------------*/
-//int mount(int partition)
-//{
-//
-//}
+int mount(int partition)
+{
+
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Desmonta a partição atualmente montada, liberando o ponto de montagem.
 //-----------------------------------------------------------------------------*/
-//int unmount(void)
-//{
-//    return -1;
-//}
+int unmount(void)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para criar um novo arquivo no disco e abrí-lo,
@@ -230,92 +263,92 @@ int format2(int partition, int sectors_per_block)
 //		arquivo já existente, o mesmo terá seu conteúdo removido e
 //		assumirá um tamanho de zero bytes.
 //-----------------------------------------------------------------------------*/
-//FILE2 create2 (char *filename)
-//{
-//    return -1;
-//}
+FILE2 create2 (char *filename)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para remover (apagar) um arquivo do disco.
 //-----------------------------------------------------------------------------*/
-//int delete2 (char *filename)
-//{
-//    return -1;
-//}
+int delete2 (char *filename)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função que abre um arquivo existente no disco.
 //-----------------------------------------------------------------------------*/
-//FILE2 open2 (char *filename)
-//{
-//    return -1;
-//}
+FILE2 open2 (char *filename)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para fechar um arquivo.
 //-----------------------------------------------------------------------------*/
-//int close2 (FILE2 handle)
-//{
-//    return -1;
-//}
+int close2 (FILE2 handle)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para realizar a leitura de uma certa quantidade
 //		de bytes (size) de um arquivo.
 //-----------------------------------------------------------------------------*/
-//int read2 (FILE2 handle, char *buffer, int size)
-//{
-//    return -1;
-//}
+int read2 (FILE2 handle, char *buffer, int size)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para realizar a escrita de uma certa quantidade
 //		de bytes (size) de  um arquivo.
 //-----------------------------------------------------------------------------*/
-//int write2 (FILE2 handle, char *buffer, int size)
-//{
-//    return -1;
-//}
+int write2 (FILE2 handle, char *buffer, int size)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função que abre um diretório existente no disco.
 //-----------------------------------------------------------------------------*/
-//DIR2 opendir2 (void)
-//{
-//    return -1;
-//}
+DIR2 opendir2 (void)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para ler as entradas de um diretório.
 //-----------------------------------------------------------------------------*/
-//int readdir2 (DIRENT2 *dentry)
-//{
-//    return -1;
-//}
+int readdir2 (DIRENT2 *dentry)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para fechar um diretório.
 //-----------------------------------------------------------------------------*/
-//int closedir2 (void)
-//{
-//    return -1;
-//}
+int closedir2 (void)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para criar um caminho alternativo (softlink)
 //-----------------------------------------------------------------------------*/
-//int sln2 (char *linkname, char *filename)
-//{
-//    return -1;
-//}
+int sln2 (char *linkname, char *filename)
+{
+    return -1;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para criar um caminho alternativo (hardlink)
 //-----------------------------------------------------------------------------*/
-//int hln2(char *linkname, char *filename)
-//{
-//    return -1;
-//}
+int hln2(char *linkname, char *filename)
+{
+    return -1;
+}
 //
 //
 //
