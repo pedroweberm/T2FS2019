@@ -5,8 +5,8 @@
 int main()
 {
     printf("Main\n");
-    printf(" %d", sizeof(unsigned short int));
     logMbr();
-    readSuper(0, 256);
+    format2(0, 2);
+    readSuper(0);
     return 0;
 }

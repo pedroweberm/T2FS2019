@@ -37,6 +37,14 @@ typedef struct mbr
 mbr_data mbrData;
 superbloco Super;
 
+int roundUp(float x){
+    if (x - (int) x > 0){
+        return (int) x + 1;
+    }
+
+    return (int) x;
+}
+
 int logMbr()
 {
     read_sector(0, (BYTE *)&mbrData);
@@ -68,6 +76,7 @@ int logMbr()
 int readSuper(int partition)
 {
     int sectorToRead = 0;
+    int i = 0;
     if (partition == 0){
         sectorToRead = mbrData.endPrimeiroBlocoPartZero;
     }
@@ -81,26 +90,28 @@ int readSuper(int partition)
         sectorToRead = mbrData.endPrimeiroBlocoPartTres;
     }
 
-    unsigned char buffer[SECTOR_SIZE];
+    printf(" \nSECTOR TO READ = %d\n", sectorToRead);
 
-
-    printf("\n%d\n", sectorToRead);
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
     if(read_sector(sectorToRead, buffer) != 0)
     {
         printf("Error: Failed reading sector 0!\n");
         return -1;
     }
 
-    strncpy(Super.id, (char*)buffer, 4);
-    Super.version = *( (DWORD*)(buffer + 4) );
-    Super.superblockSize = *( (WORD*)(buffer + 6) );
-    Super.freeBlocksBitmapSize = *( (WORD*)(buffer + 8) );
-    Super.freeInodeBitmapSize = *( (WORD*)(buffer + 10) );
-    Super.inodeAreaSize = *( (WORD*)(buffer + 12) );
-    Super.blockSize = *( (WORD*)(buffer + 14) );
-    Super.diskSize = *( (DWORD*)(buffer + 16) );
+    memcpy(&Super, buffer, sizeof(superbloco));
 
-    printf("%d\n", Super.superblockSize);
+    printf("SUPER VERSION = %d\n", (int) Super.version);
+    printf("SUPER ID = ");
+    for (i = 0; i < 4; i++){
+        printf("%c", Super.id[i]);
+
+    }
+    printf("\n");
+    printf("SUPER BLOCKSIZE = %d\n", (int) Super.superblockSize);
+    printf("SUPER BITMAP SIZE = %d\n", (int) Super.freeBlocksBitmapSize);
+    printf("SUPER INODEBITMAP SIZE = %d\n", (int) Super.freeInodeBitmapSize);
+    printf("SUPER INODEAREA SIZE = %d\n", (int) Super.inodeAreaSize);
 
     return 0;
 }
@@ -134,31 +145,67 @@ int readSuper(int partition)
 //		arquivos T2FS definido usando blocos de dados de tamanho
 //		corresponde a um múltiplo de setores dados por sectors_per_block.
 //-----------------------------------------------------------------------------*/
-//int format2(int partition, int sectors_per_block)
-//{
+int format2(int partition, int sectors_per_block)
+{
 //    readSuper(partition);
-//
-//    for(i = 0; i < Super.diskSize; i++)
-//        setBitmap2(BITMAP_DADOS, i, 0);
-//
-//    for ( i = 0; i < Super.SuperSize; i++)
-//        setBitmap2(BITMAP_DADOS, i, 1);
-//
-//    for ( i = 0; i < Super.freeBlockBitmapSize; i++)
-//        setBitmap2(BITMAP_DADOS, Super.SuperSize + i, 1);
-//
-//    for ( i =0; i < Super.freeInodeBitmapSize; i++)
-//        setBitmap2(BITMAP_DADOS, Super.SuperSize + Super.freeBlocksBitmapSize + i, 1);
-//
-//    for ( i = 0; i< Super.inodeAreaSize; i++)
-//        setBitmap2(BITMAP_DADOS, Super.SuperSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
-//
-//    for (i = 0; i < Super.inodeAreaSize * iNodesPerSector * Super.blockSize; i++)
-//        setBitmap2(BITMAP_INODE, i, 0);
-//
-//    setBitmap2(BITMAP_INODE, 0, 1);
-//
-//}
+    int i = 0;
+    strcpy(Super.id, "T2FS\0");
+    Super.version = 32306;
+    Super.superblockSize = 1;
+    Super.blockSize = sectors_per_block;
+    int firstSector = 0;
+    if (partition == 0){
+        Super.diskSize = mbrData.endUltimoBlocoPartZero - mbrData.endPrimeiroBlocoPartZero + 1;
+        firstSector = mbrData.endPrimeiroBlocoPartZero;
+
+    }
+    else if (partition == 1){
+        Super.diskSize = mbrData.endUltimoBlocoPartUm - mbrData.endPrimeiroBlocoPartUm + 1;
+        firstSector = mbrData.endPrimeiroBlocoPartUm;
+    }
+    else if (partition == 2){
+        Super.diskSize = mbrData.endUltimoBlocoPartDois - mbrData.endPrimeiroBlocoPartDois + 1;
+        firstSector = mbrData.endPrimeiroBlocoPartDois;
+    }
+    else if (partition == 3){
+        Super.diskSize = mbrData.endUltimoBlocoPartTres - mbrData.endPrimeiroBlocoPartTres + 1;
+        firstSector = mbrData.endPrimeiroBlocoPartTres;
+    }
+    printf("DISK SIZE = %d e BLOCK SIZE = %d\n", Super.diskSize, Super.blockSize);
+    Super.inodeAreaSize = roundUp(0.1 * Super.diskSize);
+
+    Super.freeInodeBitmapSize = roundUp( (float) ( (float) Super.inodeAreaSize / ( (float) SECTOR_SIZE * 8.0 * (float) Super.blockSize)));
+    Super.freeBlocksBitmapSize = roundUp( (float) (0.9 * (float) Super.diskSize / ((float) SECTOR_SIZE * 8.0 * (float) Super.blockSize)));
+
+//    printf("RESULTADO DA CONTA = %.20f\n", (Super.inodeAreaSize / (SECTOR_SIZE * 8.0 * Super.blockSize)));
+//    printf("INodeAreaSize = %d e FreeINodeBitmapSize = %d e BlockSize = %d\n", Super.inodeAreaSize, Super.freeInodeBitmapSize, Super.blockSize );
+    int iNodesPerSector = roundUp(Super.inodeAreaSize / (Super.freeInodeBitmapSize * Super.blockSize));
+
+    for(i = 0; i < Super.diskSize; i++)
+        setBitmap2(BITMAP_DADOS, i, 0);
+
+    for ( i = 0; i < Super.superblockSize; i++)
+        setBitmap2(BITMAP_DADOS, i, 1);
+
+    for ( i = 0; i < Super.freeBlocksBitmapSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.superblockSize + i, 1);
+
+    for ( i =0; i < Super.freeInodeBitmapSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + i, 1);
+
+    for ( i = 0; i< Super.inodeAreaSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
+
+    for (i = 0; i < Super.inodeAreaSize * iNodesPerSector * Super.blockSize; i++)
+        setBitmap2(BITMAP_INODE, i, 0);
+
+    setBitmap2(BITMAP_INODE, 0, 1);
+
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+    memcpy(buffer, &Super, sizeof(superbloco));
+
+    write_sector(firstSector, buffer);
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Monta a partição indicada por "partition" no diretório raiz
