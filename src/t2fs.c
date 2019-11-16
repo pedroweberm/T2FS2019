@@ -168,10 +168,10 @@ int format2(int partition, int sectors_per_block)
     Super.superblockSize = 1;
     Super.blockSize = sectors_per_block;
     int firstSector = 0;
+
     if (partition == 0){
         Super.diskSize = mbrData.endUltimoBlocoPartZero - mbrData.endPrimeiroBlocoPartZero + 1;
         firstSector = mbrData.endPrimeiroBlocoPartZero;
-
     }
     else if (partition == 1){
         Super.diskSize = mbrData.endUltimoBlocoPartUm - mbrData.endPrimeiroBlocoPartUm + 1;
@@ -185,34 +185,30 @@ int format2(int partition, int sectors_per_block)
         Super.diskSize = mbrData.endUltimoBlocoPartTres - mbrData.endPrimeiroBlocoPartTres + 1;
         firstSector = mbrData.endPrimeiroBlocoPartTres;
     }
+
     printf("\nDISK SIZE = %d e BLOCK SIZE = %d\n", Super.diskSize, Super.blockSize);
 
     float rawInodeAreaSize = 0.1f * ((float)Super.diskSize);
     Super.inodeAreaSize = roundUp(rawInodeAreaSize);
 
-    int numberOfInodes = roundUp((float)(((float)(Super.inodeAreaSize * SECTOR_SIZE)) / 32.0f));
+    int numberOfInodes = roundUp((float)(((float)(Super.inodeAreaSize * SECTOR_SIZE * sectors_per_block)) / 32.0f));
 
     int inodeBitmapSizeBytes = roundUp((float)numberOfInodes / 8.0f);
     float rawfreeInodeBitmapSizeBlocks = inodeBitmapSizeBytes / (float)(sectors_per_block * SECTOR_SIZE);
 
     Super.freeInodeBitmapSize = roundUp(rawfreeInodeBitmapSizeBlocks);
 
-    int blockAreaSizeSectors = Super.diskSize - Super.inodeAreaSize;
-
-    int numberOfBlocks = roundUp((float)(((float)(blockAreaSizeSectors)) / Super.blockSize));
+    int numberOfBlocks = Super.diskSize - Super.inodeAreaSize;
 
     int blocksBitmapSizeBytes = roundUp((float)numberOfBlocks / 8.0f);
     float rawfreeBlocksBitmapSizeBlocks = blocksBitmapSizeBytes / (float)(sectors_per_block * SECTOR_SIZE);
 
     Super.freeBlocksBitmapSize = roundUp(rawfreeBlocksBitmapSizeBlocks);
 
-//    printf("RESULTADO DA CONTA = %.20f\n", (Super.inodeAreaSize / (SECTOR_SIZE * 8.0 * Super.blockSize)));
-    printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
-    printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", blockAreaSizeSectors * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
+    printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE * sectors_per_block, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
+    printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", numberOfBlocks * sectors_per_block * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
 
     int iNodesPerSector = roundUp((float)(((float) Super.inodeAreaSize) / ((float) Super.freeInodeBitmapSize * (float) Super.blockSize)));
-
-    //printf("inode bitmapsize = %d\nblocks bitmapszie = %d\ninodes persectr = %d\n", Super.freeInodeBitmapSize, Super.freeBlocksBitmapSize, iNodesPerSector);
 
     for(i = 0; i < Super.diskSize; i++)
         setBitmap2(BITMAP_DADOS, i, 0);
