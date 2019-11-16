@@ -162,6 +162,7 @@ int format2(int partition, int sectors_per_block)
 {
     initT2FS();
 
+    int j = 0;
     int i = 0;
     strcpy(Super.id, "T2FS");
     Super.version = 32306;
@@ -205,6 +206,23 @@ int format2(int partition, int sectors_per_block)
 
     Super.freeBlocksBitmapSize = roundUp(rawfreeBlocksBitmapSizeBlocks);
 
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+
+    read_sector(firstSector, buffer);
+
+    WORD temp = 0;
+    WORD checksum = 0;
+
+    for(i = 0; i < 20; i++){
+        for (j = 0; j< 4; j++){
+            temp = (temp) | ( ( ( buffer[i] >> j ) & 1) << j );
+        }
+        checksum += temp;
+        temp = 0;
+    }
+
+    printf("\nCHECKSUM = %u\n", checksum);
+
     printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE * sectors_per_block, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
     printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", numberOfBlocks * sectors_per_block * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
 
@@ -230,7 +248,6 @@ int format2(int partition, int sectors_per_block)
 
     setBitmap2(BITMAP_INODE, 0, 1);
 
-    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
     memcpy(buffer, &Super, sizeof(superbloco));
 
     write_sector(firstSector, buffer);
