@@ -256,6 +256,7 @@ int format2(int partition, int sectors_per_block)
     DWORD temp;
     DWORD checksum = 0;
 
+    // MUDAR AQUI: TA LENDO AO CONTRARIO! Deveria ler version concatenado com superblocksize, ta lendo superblocksize concatenado com version, aí os valores saem todo bugados.
     for(i = 0; i < 5; i++)
     {
         memcpy(&temp, &buffer[i * 4], sizeof(DWORD));
