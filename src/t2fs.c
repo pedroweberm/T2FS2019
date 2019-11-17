@@ -8,7 +8,12 @@
 #include "../include/apidisk.h"
 #include "../include/bitmap2.h"
 #include "../include/t2disk.h"
+int part0_mount = 0;
+int part1_mount = 0;
+int part2_mount = 0;
+int part3_mount = 0;
 typedef struct t2fs_superbloco superbloco;
+typedef struct t2fs_inode inode;
 typedef struct mbr
 {
     WORD versao;
@@ -213,12 +218,14 @@ int format2(int partition, int sectors_per_block)
 
     Super.freeInodeBitmapSize = roundUp(rawfreeInodeBitmapSizeBlocks);
 
-    int numberOfBlocks = Super.diskSize - Super.inodeAreaSize;
+    int rawNumberOfBlocks = roundUp(0.9 * Super.diskSize - Super.inodeAreaSize - 1);
 
-    int blocksBitmapSizeBytes = roundUp((float)numberOfBlocks / 8.0f);
+    int blocksBitmapSizeBytes = roundUp((float)rawNumberOfBlocks / 8.0f);
     float rawfreeBlocksBitmapSizeBlocks = blocksBitmapSizeBytes / (float)(sectors_per_block * SECTOR_SIZE);
 
     Super.freeBlocksBitmapSize = roundUp(rawfreeBlocksBitmapSizeBlocks);
+
+    int numberOfBlocks = Super.diskSize - Super.inodeAreaSize - Super.freeBlocksBitmapSize - 1;
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
 
@@ -227,25 +234,36 @@ int format2(int partition, int sectors_per_block)
 
     int iNodesPerSector = roundUp((float)(((float) Super.inodeAreaSize) / ((float) Super.freeInodeBitmapSize * (float) Super.blockSize)));
 
-    for(i = 0; i < Super.diskSize; i++)
+    openBitmap2(firstSector);
+
+//    for(i = 0; i < Super.diskSize; i++)
+//        setBitmap2(BITMAP_DADOS, i, 0);
+//
+//    for ( i = 0; i < Super.superblockSize; i++)
+//        setBitmap2(BITMAP_DADOS, i, 1);
+//
+//    for ( i = 0; i < Super.freeBlocksBitmapSize; i++)
+//        setBitmap2(BITMAP_DADOS, Super.superblockSize + i, 1);
+//
+//    for ( i =0; i < Super.freeInodeBitmapSize; i++)
+//        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + i, 1);
+//
+//    for ( i = 0; i< Super.inodeAreaSize; i++)
+//        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
+
+    for (i = 0; i < numberOfBlocks; i++){
         setBitmap2(BITMAP_DADOS, i, 0);
+    }
 
-    for ( i = 0; i < Super.superblockSize; i++)
-        setBitmap2(BITMAP_DADOS, i, 1);
 
-    for ( i = 0; i < Super.freeBlocksBitmapSize; i++)
-        setBitmap2(BITMAP_DADOS, Super.superblockSize + i, 1);
 
-    for ( i =0; i < Super.freeInodeBitmapSize; i++)
-        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + i, 1);
-
-    for ( i = 0; i< Super.inodeAreaSize; i++)
-        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
-
-    for (i = 0; i < numberOfInodes * Super.blockSize; i++) //usei numberOfInodes ao inves de Super.inodeAreaSize * iNodesPerSector
+    //                             * Super.blockSize
+    for (i = 0; i < numberOfInodes                  ; i++) //usei numberOfInodes ao inves de Super.inodeAreaSize * iNodesPerSector
         setBitmap2(BITMAP_INODE, i, 0);
 
     setBitmap2(BITMAP_INODE, 0, 1);
+
+    closeBitmap2();
 
     memcpy(buffer, &Super, sizeof(superbloco));
 
@@ -274,11 +292,7 @@ int format2(int partition, int sectors_per_block)
 //
 //    write_sector(firstSector, buffer);
 
-    openBitmap2(firstSector);
 
-    int freeBlockIndex = searchBitmap2(BITMAP_INODE, 0);
-
-    printf("Primeiro bloco livre = %d\n", freeBlockIndex);
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -286,7 +300,97 @@ int format2(int partition, int sectors_per_block)
 //-----------------------------------------------------------------------------*/
 int mount(int partition)
 {
+    int superblockSector = 0;
 
+    if (partition == 0)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartZero;
+    }
+    else if (partition == 1)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartUm;
+    }
+    else if (partition == 2)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartDois;
+    }
+    else if (partition == 3)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartTres;
+    }
+
+    read_sector(superblockSector, &Super);
+
+    int firstSectorBitmapFreeblocks = superblockSector + 1;
+    int firstSectorBitmapInodes = firstSectorBitmapFreeblocks + Super.freeBlocksBitmapSize;
+    int firstSectorInodeArea = firstSectorBitmapInodes + Super.freeInodeBitmapSize;
+    int firstSectorBlocksArea = firstSectorInodeArea + Super.inodeAreaSize;
+
+    openBitmap2(superblockSector);
+
+    //retorna o valor LÓGICO dentro do bitmap, precisa somar com firstSectorBitmapInodes
+    int freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
+    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+
+    inode iNodeDir;
+
+    iNodeDir.blocksFileSize = 0;
+    iNodeDir.bytesFileSize = 0;
+
+    iNodeDir.dataPtr[0] = freeBlockBit;
+    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+
+    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+
+    iNodeDir.dataPtr[1] = freeBlockBit;
+    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+
+    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+
+    iNodeDir.singleIndPtr = freeBlockBit;
+    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+
+    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+
+    printf("Free block = %d\n", freeBlockBit);
+
+    iNodeDir.doubleIndPtr = freeBlockBit;
+    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+
+    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+
+
+    iNodeDir.RefCounter = 0;
+    iNodeDir.reservado = 0;
+
+
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+    printf("Antes do memcpy\n");
+    memcpy(buffer, &iNodeDir, sizeof(iNodeDir));
+    printf("Depois do memcpy\n");
+    write_sector(firstSectorInodeArea, buffer);
+
+    printf("depois do write_sector\n");
+    printf("Free inode = %d\n", freeInodeBit);
+
+    setBitmap2(BITMAP_INODE, freeInodeBit, 1);
+
+    if (partition == 0)
+    {
+        part0_mount = 1;
+    }
+    else if (partition == 1)
+    {
+        part1_mount = 1;
+    }
+    else if (partition == 2)
+    {
+        part2_mount = 1;
+    }
+    else if (partition == 3)
+    {
+        part3_mount = 1;
+    }
 }
 //
 ///*-----------------------------------------------------------------------------
