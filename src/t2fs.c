@@ -251,28 +251,34 @@ int format2(int partition, int sectors_per_block)
 
     write_sector(firstSector, buffer);
 
-    read_sector(firstSector, buffer);
+//    read_sector(firstSector, buffer);
+//
+//    DWORD temp;
+//    DWORD checksum = 0;
+//
+//    // MUDAR AQUI: TA LENDO AO CONTRARIO! Deveria ler version concatenado com superblocksize, ta lendo superblocksize concatenado com version, aí os valores saem todo bugados.
+//    for(i = 0; i < 5; i++)
+//    {
+//        memcpy(&temp, &buffer[i * 4], sizeof(DWORD));
+//        checksum += temp;
+//        printf("TEMP = %u\n", temp);
+////            temp = 0;
+////        temp = (temp) | ( ( ( *buffer >> i ) & 1) << i );
+//    }
+//
+//    printf("\nCHECKSUM = %d\n", ~checksum);
+//
+//    Super.Checksum = ~ checksum;
+//
+//    memcpy(buffer, &Super, sizeof(superbloco));
+//
+//    write_sector(firstSector, buffer);
 
-    DWORD temp;
-    DWORD checksum = 0;
+    openBitmap2(firstSector);
 
-    // MUDAR AQUI: TA LENDO AO CONTRARIO! Deveria ler version concatenado com superblocksize, ta lendo superblocksize concatenado com version, aí os valores saem todo bugados.
-    for(i = 0; i < 5; i++)
-    {
-        memcpy(&temp, &buffer[i * 4], sizeof(DWORD));
-        checksum += temp;
-        printf("TEMP = %u\n", temp);
-//            temp = 0;
-//        temp = (temp) | ( ( ( *buffer >> i ) & 1) << i );
-    }
+    int freeBlockIndex = searchBitmap2(BITMAP_INODE, 0);
 
-    printf("\nCHECKSUM = %d\n", ~checksum);
-
-    Super.Checksum = ~ checksum;
-
-    memcpy(buffer, &Super, sizeof(superbloco));
-
-    write_sector(firstSector, buffer);
+    printf("Primeiro bloco livre = %d\n", freeBlockIndex);
 }
 //
 ///*-----------------------------------------------------------------------------
