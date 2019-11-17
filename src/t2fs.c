@@ -38,9 +38,12 @@ mbr_data mbrData;
 superbloco Super;
 int initialized = 0;
 
-int initT2FS () {
-    if (initialized == 0) {
-        if (read_sector(0, (BYTE *)&mbrData) != 0) {
+int initT2FS ()
+{
+    if (initialized == 0)
+    {
+        if (read_sector(0, (BYTE *)&mbrData) != 0)
+        {
             printf("Error while reading MBR\n");
             return -1;
         }
@@ -50,8 +53,10 @@ int initT2FS () {
     return 0;
 }
 
-int roundUp(float x){
-    if (x - (int) x > 0){
+int roundUp(float x)
+{
+    if (x - (int) x > 0)
+    {
         return (int) x + 1;
     }
 
@@ -88,16 +93,20 @@ int readSuper(int partition)
 {
     int sectorToRead = 0;
     int i = 0;
-    if (partition == 0){
+    if (partition == 0)
+    {
         sectorToRead = mbrData.endPrimeiroBlocoPartZero;
     }
-    else if (partition == 1){
+    else if (partition == 1)
+    {
         sectorToRead = mbrData.endPrimeiroBlocoPartUm;
     }
-    else if (partition == 2){
+    else if (partition == 2)
+    {
         sectorToRead = mbrData.endPrimeiroBlocoPartDois;
     }
-    else if (partition == 3){
+    else if (partition == 3)
+    {
         sectorToRead = mbrData.endPrimeiroBlocoPartTres;
     }
 
@@ -114,7 +123,8 @@ int readSuper(int partition)
 
     printf("SUPER VERSION = %d\n", (int) Super.version);
     printf("SUPER ID = ");
-    for (i = 0; i < 4; i++){
+    for (i = 0; i < 4; i++)
+    {
         printf("%c", Super.id[i]);
 
     }
@@ -170,19 +180,23 @@ int format2(int partition, int sectors_per_block)
     Super.blockSize = sectors_per_block;
     int firstSector = 0;
 
-    if (partition == 0){
+    if (partition == 0)
+    {
         Super.diskSize = mbrData.endUltimoBlocoPartZero - mbrData.endPrimeiroBlocoPartZero + 1;
         firstSector = mbrData.endPrimeiroBlocoPartZero;
     }
-    else if (partition == 1){
+    else if (partition == 1)
+    {
         Super.diskSize = mbrData.endUltimoBlocoPartUm - mbrData.endPrimeiroBlocoPartUm + 1;
         firstSector = mbrData.endPrimeiroBlocoPartUm;
     }
-    else if (partition == 2){
+    else if (partition == 2)
+    {
         Super.diskSize = mbrData.endUltimoBlocoPartDois - mbrData.endPrimeiroBlocoPartDois + 1;
         firstSector = mbrData.endPrimeiroBlocoPartDois;
     }
-    else if (partition == 3){
+    else if (partition == 3)
+    {
         Super.diskSize = mbrData.endUltimoBlocoPartTres - mbrData.endPrimeiroBlocoPartTres + 1;
         firstSector = mbrData.endPrimeiroBlocoPartTres;
     }
@@ -208,21 +222,6 @@ int format2(int partition, int sectors_per_block)
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
 
-    read_sector(firstSector, buffer);
-
-    WORD temp = 0;
-    WORD checksum = 0;
-
-    for(i = 0; i < 20; i++){
-        for (j = 0; j< 4; j++){
-            temp = (temp) | ( ( ( buffer[i] >> j ) & 1) << j );
-        }
-        checksum += temp;
-        temp = 0;
-    }
-
-    printf("\nCHECKSUM = %u\n", checksum);
-
     printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE * sectors_per_block, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
     printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", numberOfBlocks * sectors_per_block * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
 
@@ -247,6 +246,28 @@ int format2(int partition, int sectors_per_block)
         setBitmap2(BITMAP_INODE, i, 0);
 
     setBitmap2(BITMAP_INODE, 0, 1);
+
+    memcpy(buffer, &Super, sizeof(superbloco));
+
+    write_sector(firstSector, buffer);
+
+    read_sector(firstSector, buffer);
+
+    DWORD temp;
+    DWORD checksum = 0;
+
+    for(i = 0; i < 5; i++)
+    {
+        memcpy(&temp, &buffer[i * 4], sizeof(DWORD));
+        checksum += temp;
+        printf("TEMP = %u\n", temp);
+//            temp = 0;
+//        temp = (temp) | ( ( ( *buffer >> i ) & 1) << i );
+    }
+
+    printf("\nCHECKSUM = %d\n", ~checksum);
+
+    Super.Checksum = ~ checksum;
 
     memcpy(buffer, &Super, sizeof(superbloco));
 
