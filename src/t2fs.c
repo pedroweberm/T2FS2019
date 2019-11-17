@@ -218,7 +218,7 @@ int format2(int partition, int sectors_per_block)
 
     Super.freeInodeBitmapSize = roundUp(rawfreeInodeBitmapSizeBlocks);
 
-    int rawNumberOfBlocks = roundUp(0.9 * Super.diskSize - Super.inodeAreaSize - 1);
+    int rawNumberOfBlocks = roundUp(0.9 * Super.diskSize - Super.inodeAreaSize - Super.freeInodeBitmapSize - 1);
 
     int blocksBitmapSizeBytes = roundUp((float)rawNumberOfBlocks / 8.0f);
     float rawfreeBlocksBitmapSizeBlocks = blocksBitmapSizeBytes / (float)(sectors_per_block * SECTOR_SIZE);
@@ -365,15 +365,8 @@ int mount(int partition)
 
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
-    printf("Antes do memcpy\n");
     memcpy(buffer, &iNodeDir, sizeof(iNodeDir));
-    printf("Depois do memcpy\n");
     write_sector(firstSectorInodeArea, buffer);
-
-    printf("depois do write_sector\n");
-    printf("Free inode = %d\n", freeInodeBit);
-
-    setBitmap2(BITMAP_INODE, freeInodeBit, 1);
 
     if (partition == 0)
     {
