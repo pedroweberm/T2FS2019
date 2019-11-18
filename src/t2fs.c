@@ -327,9 +327,8 @@ int mount(int partition)
 
     openBitmap2(superblockSector);
 
-    //retorna o valor LÓGICO dentro do bitmap, precisa somar com firstSectorBitmapInodes
     int freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
-    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+    int firstBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
     inode iNodeDir;
     record iNodeRec;
@@ -337,10 +336,10 @@ int mount(int partition)
     iNodeDir.blocksFileSize = 0;
     iNodeDir.bytesFileSize = 0;
 
-    iNodeDir.dataPtr[0] = freeBlockBit;
-    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+    iNodeDir.dataPtr[0] = firstBlockBit;
+    setBitmap2(BITMAP_DADOS, firstBlockBit, 1);
 
-    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
     iNodeDir.dataPtr[1] = freeBlockBit;
     setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
@@ -376,8 +375,8 @@ int mount(int partition)
 
     freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
     memcpy(buffer, &iNodeRec, sizeof(iNodeRec));
-    write_sector(firstSectorBlocksArea + freeBlockBit, buffer);
-    setBitmap2(BITMAP_INODE, freeBlockBit, 1);
+    write_sector(firstSectorBlocksArea + firstBlockBit, buffer);
+    setBitmap2(BITMAP_INODE, firstBlockBit, 1);
 
 
     if (partition == 0)
@@ -396,6 +395,10 @@ int mount(int partition)
     {
         part3_mount = 1;
     }
+
+    closeBitmap2();
+
+    return 0;
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -403,7 +406,20 @@ int mount(int partition)
 //-----------------------------------------------------------------------------*/
 int unmount(void)
 {
-    return -1;
+    if (part0_mount) {
+        part0_mount = 0;
+    }
+    else if (part1_mount){
+        part1_mount = 0;
+    }
+    else if (part2_mount){
+        part2_mount = 0;
+    }
+    else if (part3_mount){
+        part3_mount = 0;
+    }
+
+    return 0;
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -415,7 +431,54 @@ int unmount(void)
 //-----------------------------------------------------------------------------*/
 FILE2 create2 (char *filename)
 {
-    return -1;
+    //a ideia eh passar por todos os blocos de dados do inode do diretorio, olhando pra ver se o nome é igual ao passado
+    //assim tu descobre se tem que criar do zero
+
+    inode tempINode;
+    record tempRecord;
+    inode currentInode;
+    record currentRecord;
+
+    if (partition == 0)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartZero;
+    }
+    else if (partition == 1)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartUm;
+    }
+    else if (partition == 2)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartDois;
+    }
+    else if (partition == 3)
+    {
+        superblockSector = mbrData.endPrimeiroBlocoPartTres;
+    }
+
+    read_sector(superblockSector, &Super);
+
+    int firstSectorBitmapFreeblocks = superblockSector + 1;
+    int firstSectorBitmapInodes = firstSectorBitmapFreeblocks + Super.freeBlocksBitmapSize;
+    int firstSectorInodeArea = firstSectorBitmapInodes + Super.freeInodeBitmapSize;
+    int firstSectorBlocksArea = firstSectorInodeArea + Super.inodeAreaSize;
+
+    int freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
+    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+
+    //skip dir's iNode
+    int currentInodeIndex = 1;
+    while (currentInodeIndex < freeInodeBit){
+
+        read_sector()
+        memcpy(currentInode
+
+        currentInodeIndex += 1
+
+    }
+
+
+
 }
 //
 ///*-----------------------------------------------------------------------------
