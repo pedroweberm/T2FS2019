@@ -14,6 +14,7 @@ int part2_mount = 0;
 int part3_mount = 0;
 typedef struct t2fs_superbloco superbloco;
 typedef struct t2fs_inode inode;
+typedef struct t2fs_record record;
 typedef struct mbr
 {
     WORD versao;
@@ -218,17 +219,16 @@ int format2(int partition, int sectors_per_block)
 
     Super.freeInodeBitmapSize = roundUp(rawfreeInodeBitmapSizeBlocks);
 
-    int rawNumberOfBlocks = roundUp(0.9 * Super.diskSize - Super.inodeAreaSize - Super.freeInodeBitmapSize - 1);
+    int numberOfBlocks = roundUp(Super.diskSize - Super.inodeAreaSize);
 
-    int blocksBitmapSizeBytes = roundUp((float)rawNumberOfBlocks / 8.0f);
+    int blocksBitmapSizeBytes = roundUp((float)numberOfBlocks / 8.0f);
     float rawfreeBlocksBitmapSizeBlocks = blocksBitmapSizeBytes / (float)(sectors_per_block * SECTOR_SIZE);
 
     Super.freeBlocksBitmapSize = roundUp(rawfreeBlocksBitmapSizeBlocks);
 
-    int numberOfBlocks = Super.diskSize - Super.inodeAreaSize - Super.freeBlocksBitmapSize - 1;
-
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
 
+    printf("\nInode Area Size = %d\n", Super.inodeAreaSize);
     printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE * sectors_per_block, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
     printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", numberOfBlocks * sectors_per_block * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
 
@@ -236,32 +236,31 @@ int format2(int partition, int sectors_per_block)
 
     openBitmap2(firstSector);
 
-//    for(i = 0; i < Super.diskSize; i++)
-//        setBitmap2(BITMAP_DADOS, i, 0);
-//
-//    for ( i = 0; i < Super.superblockSize; i++)
-//        setBitmap2(BITMAP_DADOS, i, 1);
-//
-//    for ( i = 0; i < Super.freeBlocksBitmapSize; i++)
-//        setBitmap2(BITMAP_DADOS, Super.superblockSize + i, 1);
-//
-//    for ( i =0; i < Super.freeInodeBitmapSize; i++)
-//        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + i, 1);
-//
-//    for ( i = 0; i< Super.inodeAreaSize; i++)
-//        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
-
-    for (i = 0; i < numberOfBlocks; i++){
+    //zera tudo
+    for(i = 0; i < Super.freeBlocksBitmapSize; i++)
         setBitmap2(BITMAP_DADOS, i, 0);
-    }
 
+    //marca blocos usados pro superbloco
+    for ( i = 0; i < Super.superblockSize; i++)
+        setBitmap2(BITMAP_DADOS, i, 1);
+
+    //marca blocos do bitmap de dados
+    for ( i = 0; i < Super.freeBlocksBitmapSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.superblockSize + i, 1);
+
+    //marca blocos do bitmap de inodes
+    for ( i =0; i < Super.freeInodeBitmapSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + i, 1);
+
+    //marca blocos dos proprios inodes
+    for ( i = 0; i< Super.inodeAreaSize; i++)
+        setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + Super.freeInodeBitmapSize + i, 1);
 
 
     //                             * Super.blockSize
     for (i = 0; i < numberOfInodes                  ; i++) //usei numberOfInodes ao inves de Super.inodeAreaSize * iNodesPerSector
         setBitmap2(BITMAP_INODE, i, 0);
 
-    setBitmap2(BITMAP_INODE, 0, 1);
 
     closeBitmap2();
 
@@ -333,6 +332,7 @@ int mount(int partition)
     int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
     inode iNodeDir;
+    record iNodeRec;
 
     iNodeDir.blocksFileSize = 0;
     iNodeDir.bytesFileSize = 0;
@@ -352,8 +352,6 @@ int mount(int partition)
 
     freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
-    printf("Free block = %d\n", freeBlockBit);
-
     iNodeDir.doubleIndPtr = freeBlockBit;
     setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
 
@@ -367,6 +365,20 @@ int mount(int partition)
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
     memcpy(buffer, &iNodeDir, sizeof(iNodeDir));
     write_sector(firstSectorInodeArea, buffer);
+    setBitmap2(BITMAP_INODE, 0, 1);
+
+    iNodeRec.TypeVal = 1;
+    strcpy(iNodeRec.name, "inoderec\0");
+    DWORD dummy = 0;
+    iNodeRec.Nao_usado[0] = dummy;
+    iNodeRec.Nao_usado[1] = dummy;
+    iNodeRec.inodeNumber = 0;
+
+    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+    memcpy(buffer, &iNodeRec, sizeof(iNodeRec));
+    write_sector(firstSectorBlocksArea + freeBlockBit, buffer);
+    setBitmap2(BITMAP_INODE, freeBlockBit, 1);
+
 
     if (partition == 0)
     {
