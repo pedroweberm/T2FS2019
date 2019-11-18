@@ -237,20 +237,23 @@ int format2(int partition, int sectors_per_block)
     openBitmap2(firstSector);
 
     //zera tudo
-    for(i = 0; i < Super.freeBlocksBitmapSize; i++)
+    for(i = 0; i < Super.diskSize; i++)
         setBitmap2(BITMAP_DADOS, i, 0);
 
     //marca blocos usados pro superbloco
     for ( i = 0; i < Super.superblockSize; i++)
         setBitmap2(BITMAP_DADOS, i, 1);
+        printf("Free block ao terminar a superblocksize = %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
     //marca blocos do bitmap de dados
     for ( i = 0; i < Super.freeBlocksBitmapSize; i++)
         setBitmap2(BITMAP_DADOS, Super.superblockSize + i, 1);
+        printf("Free block ao terminar a freeblock bitmap = %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
     //marca blocos do bitmap de inodes
     for ( i =0; i < Super.freeInodeBitmapSize; i++)
         setBitmap2(BITMAP_DADOS, Super.superblockSize + Super.freeBlocksBitmapSize + i, 1);
+        printf("Free block ao terminar a freeinode bitmap = %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
     //marca blocos dos proprios inodes
     for ( i = 0; i< Super.inodeAreaSize; i++)
@@ -260,6 +263,8 @@ int format2(int partition, int sectors_per_block)
     //                             * Super.blockSize
     for (i = 0; i < numberOfInodes                  ; i++) //usei numberOfInodes ao inves de Super.inodeAreaSize * iNodesPerSector
         setBitmap2(BITMAP_INODE, i, 0);
+
+    printf("Free block ao terminar a format = %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
 
     closeBitmap2();
@@ -328,7 +333,7 @@ int mount(int partition)
     openBitmap2(superblockSector);
 
     int freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
-    int firstBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
     inode iNodeDir;
     record iNodeRec;
@@ -336,10 +341,10 @@ int mount(int partition)
     iNodeDir.blocksFileSize = 0;
     iNodeDir.bytesFileSize = 0;
 
-    iNodeDir.dataPtr[0] = firstBlockBit;
-    setBitmap2(BITMAP_DADOS, firstBlockBit, 1);
+    iNodeDir.dataPtr[0] = freeBlockBit;
+    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
 
-    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
     iNodeDir.dataPtr[1] = freeBlockBit;
     setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
@@ -375,8 +380,12 @@ int mount(int partition)
 
     freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
     memcpy(buffer, &iNodeRec, sizeof(iNodeRec));
-    write_sector(firstSectorBlocksArea + firstBlockBit, buffer);
-    setBitmap2(BITMAP_INODE, firstBlockBit, 1);
+    write_sector(firstSectorBlocksArea + freeBlockBit, buffer);
+    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+
+    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+    freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
+    printf("Bits livres ao terminar a mount:\nBLOCKS = %d\nINODE = %d\n", freeBlockBit, freeInodeBit);
 
 
     if (partition == 0)
@@ -433,49 +442,50 @@ FILE2 create2 (char *filename)
 {
     //a ideia eh passar por todos os blocos de dados do inode do diretorio, olhando pra ver se o nome é igual ao passado
     //assim tu descobre se tem que criar do zero
+//
+//    inode tempINode;
+//    record tempRecord;
+//    inode currentInode;
+//    record currentRecord;
+//    int superblockSectorsuperblockSector =0;
+//
+//    if (partition == 0)
+//    {
+//        superblockSector = mbrData.endPrimeiroBlocoPartZero;
+//    }
+//    else if (partition == 1)
+//    {
+//        superblockSector = mbrData.endPrimeiroBlocoPartUm;
+//    }
+//    else if (partition == 2)
+//    {
+//        superblockSector = mbrData.endPrimeiroBlocoPartDois;
+//    }
+//    else if (partition == 3)
+//    {
+//        superblockSector = mbrData.endPrimeiroBlocoPartTres;
+//    }
+//
+//    read_sector(superblockSector, &Super);
+//
+//    int firstSectorBitmapFreeblocks = superblockSector + 1;
+//    int firstSectorBitmapInodes = firstSectorBitmapFreeblocks + Super.freeBlocksBitmapSize;
+//    int firstSectorInodeArea = firstSectorBitmapInodes + Super.freeInodeBitmapSize;
+//    int firstSectorBlocksArea = firstSectorInodeArea + Super.inodeAreaSize;
+//
+//    int freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
+//    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
-    inode tempINode;
-    record tempRecord;
-    inode currentInode;
-    record currentRecord;
-
-    if (partition == 0)
-    {
-        superblockSector = mbrData.endPrimeiroBlocoPartZero;
-    }
-    else if (partition == 1)
-    {
-        superblockSector = mbrData.endPrimeiroBlocoPartUm;
-    }
-    else if (partition == 2)
-    {
-        superblockSector = mbrData.endPrimeiroBlocoPartDois;
-    }
-    else if (partition == 3)
-    {
-        superblockSector = mbrData.endPrimeiroBlocoPartTres;
-    }
-
-    read_sector(superblockSector, &Super);
-
-    int firstSectorBitmapFreeblocks = superblockSector + 1;
-    int firstSectorBitmapInodes = firstSectorBitmapFreeblocks + Super.freeBlocksBitmapSize;
-    int firstSectorInodeArea = firstSectorBitmapInodes + Super.freeInodeBitmapSize;
-    int firstSectorBlocksArea = firstSectorInodeArea + Super.inodeAreaSize;
-
-    int freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
-    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
-
-    //skip dir's iNode
-    int currentInodeIndex = 1;
-    while (currentInodeIndex < freeInodeBit){
-
-        read_sector()
-        memcpy(currentInode
-
-        currentInodeIndex += 1
-
-    }
+//    //skip dir's iNode
+//    int currentInodeIndex = 1;
+//    while (currentInodeIndex < freeInodeBit){
+//
+//        read_sector();
+//        memcpy(currentInode
+//
+//        currentInodeIndex += 1
+//
+//    }
 
 
 
