@@ -780,6 +780,9 @@ DIR2 opendir2 (void)
     dir_is_open = 1;
     return 0;
 }
+
+
+
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para ler as entradas de um diretório.
@@ -793,20 +796,59 @@ int readdir2 (DIRENT2 *dentry)
     {
         return -1;
     }
-    dirIOPointer += 1;
 
-    tempRecord = searchList(current_files, dentry->name);
+    int initialBlock = 0;
 
-    inodeSector = tempRecord.inodeNumber;
+    if (mountedPartition == 0)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartZero;
+    }
+    else if (mountedPartition == 1)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartUm;
+    }
+    else if (mountedPartition == 2)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartDois;
+    }
+    else if (mountedPartition == 3)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartTres;
+    }
+
+    tempRecord = searchList(current_files, dirIOPointer);
+
+    strcpy(newDentry.name, tempRecord->name);
+
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
-    read_sector(, buffer);
+    read_sector(initialBlock, buffer);
+    memcpy(&Super, buffer, sizeof(superbloco));
+
+    int inodes_per_sector = roundUp((SECTOR_SIZE * 256) / 32.0);
+
+    int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
+    int firstBlockBitmapInodes = firstBlockBitmapFreeblocks + Super.freeBlocksBitmapSize;
+    int firstBlockInodeArea = firstBlockBitmapInodes + Super.freeInodeBitmapSize;
+    int firstBlockBlocksArea = firstBlockInodeArea + Super.inodeAreaSize;
+
+    int firstSectorBitmapFreeblocks = firstBlockBitmapFreeblocks * Super.blockSize;
+    int firstSectorBitmapInodes = firstBlockBitmapInodes * Super.blockSize;
+    int firstSectorInodeArea = firstBlockInodeArea * Super.blockSize;
+    int firstSectorBlocksArea = firstBlockBlocksArea * Super.blockSize;
+
+    int inodeSector = tempRecord->inodeNumber / inodes_per_sector;
+    int inodeIndexInsideSector = tempRecord->inodeNumber % inodes_per_sector;
+
+    read_sector(firstSectorInodeArea + inodeSector + inodeIndexInsideSector, buffer);
     memcpy(&fileInode, buffer, sizeof(inode));
 
+    newDentry.fileSize = fileInode.bytesFileSize;
+    newDentry.fileType = tempRecord->TypeVal;
 
+    dirIOPointer += 1;
 
-
-
+    memcpy(dentry, &newDentry, sizeof(DIRENT2));
 }
 //
 ///*-----------------------------------------------------------------------------

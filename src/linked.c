@@ -6,13 +6,15 @@
 
 void printList(struct Node* n)
 {
-    while (n != NULL) {
+    while (n != NULL)
+    {
         printf(" %s ", n->data->name);
         n = n->next;
     }
 }
 
-struct Node* createLinkedList(){
+struct Node* createLinkedList()
+{
     return NULL;
 }
 
@@ -68,16 +70,20 @@ struct Node* removeFromList(struct Node* n, char* nodeName)
     }
 }
 
-struct t2fs_record* searchList(struct Node* n, char* nodeName)
+struct t2fs_record* searchList(struct Node* n, int current_pointer)
 {
     struct Node* aux_n = n;
     if (aux_n != NULL)
     {
         while(aux_n->next != NULL)
         {
-            if (strcmp(aux_n->next->data->name, nodeName))
+            if(i == current_pointer)
             {
-                return aux_n->next->data;
+                return aux_n;
+            }
+            else {
+                i++;
+                aux_n = aux_n->next;
             }
         }
         return NULL;
