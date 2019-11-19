@@ -786,6 +786,27 @@ DIR2 opendir2 (void)
 //-----------------------------------------------------------------------------*/
 int readdir2 (DIRENT2 *dentry)
 {
+    inode fileInode;
+    DIRENT2 newDentry;
+    record* tempRecord;
+    if (!dir_is_open)
+    {
+        return -1;
+    }
+    dirIOPointer += 1;
+
+    tempRecord = searchList(current_files, dentry->name);
+
+    inodeSector = tempRecord.inodeNumber;
+
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+    read_sector(, buffer);
+    memcpy(&fileInode, buffer, sizeof(inode));
+
+
+
+
+
 }
 //
 ///*-----------------------------------------------------------------------------
