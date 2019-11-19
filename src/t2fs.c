@@ -357,7 +357,7 @@ int mount(int partition)
     inode iNodeDir;
 
     iNodeDir.blocksFileSize = 0;
-    iNodeDir.bytesFileSize = 45;
+    iNodeDir.bytesFileSize = 0;
 
     iNodeDir.dataPtr[0] = firstBlockBlocksArea + freeBlockBit;
     setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
@@ -518,6 +518,82 @@ int write2 (FILE2 handle, char *buffer, int size)
 {
     return -1;
 }
+
+int read_direct(DWORD blockToRead)
+{
+    int initialBlock = 0;
+    record tempRecord;
+    node* tempNode;
+
+    if (mountedPartition == 0)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartZero;
+    }
+    else if (mountedPartition == 1)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartUm;
+    }
+    else if (mountedPartition == 2)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartDois;
+    }
+    else if (mountedPartition == 3)
+    {
+        initialBlock = mbrData.endPrimeiroBlocoPartTres;
+    }
+
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+    read_sector(initialBlock, buffer);
+    memcpy(&Super, buffer, sizeof(superbloco));
+
+    int records_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(record));
+    //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
+
+    int sectorToRead = blockToRead * Super.blockSize;
+
+    int i = 0;
+    int j = 0;
+    for (i = 0; i < Super.blockSize; i++)
+    {
+        read_sector(sectorToRead + i, buffer);
+
+        for (j = 0; j < records_per_sector; j++)
+        {
+
+            memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
+
+            if (tempRecord.TypeVal == 0)
+            {
+                printf("Alcancei o final do bloco %d\n", blockToRead);
+                return 0;
+            }
+            else
+            {
+                tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber);
+                if(appendToList(current_files, tempNode) != 0)
+                {
+                    return -1;
+                }
+            }
+        }
+        printf("Alcancei o final do setor %d do bloco %d", sectorToRead + i, blockToRead);
+    }
+    return 0;
+}
+
+int read_simple_indirect(DWORD blockToRead)
+{
+
+
+    return 0;
+}
+
+int read_double_indirect(DWORD blockToRead)
+{
+
+
+    return 0;
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função que abre um diretório existente no disco.
@@ -580,6 +656,10 @@ DIR2 opendir2 (void)
 
     current_files = createLinkedList();
 
+    read_direct(direct1);
+    read_direct(direct2);
+    read_simple_indirect(simpleIndirect);
+    read_double_indirect(doubleIndirect);
 }
 //
 ///*-----------------------------------------------------------------------------
