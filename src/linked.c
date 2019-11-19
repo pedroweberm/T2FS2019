@@ -23,7 +23,7 @@ struct Node* createNode(BYTE TypeVal, char name[], DWORD Nao_usado[2], DWORD ino
     newNode->data->TypeVal = TypeVal;
     strcpy(newNode->data->name, name);
     memcpy(newNode->data->Nao_usado, Nao_usado, 2 * sizeof(DWORD));
-    newNode->datainodeNumber = inodeNumber;
+    newNode->data.inodeNumber = inodeNumber;
 
     return newNode;
 }
@@ -68,7 +68,7 @@ struct Node* removeFromList(struct Node* n, char* nodeName)
     }
 }
 
-DIRENT2* searchList(struct Node* n, char* nodeName)
+struct t2fs_record* searchList(struct Node* n, char* nodeName)
 {
     struct Node* aux_n = n;
     if (aux_n != NULL)

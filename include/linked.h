@@ -15,5 +15,5 @@ struct Node* appendToList(struct Node* n, struct Node* newNode);
 
 struct Node* removeFromList(struct Node* n, char* nodeName);
 
-DIRENT2* searchList(struct Node* n, char* nodeName);
+struct t2fs_record* searchList(struct Node* n, char* nodeName);
 
