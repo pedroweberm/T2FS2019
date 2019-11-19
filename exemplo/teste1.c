@@ -8,7 +8,7 @@ int main()
 //    logMbr();
     format2(0, 2);
     mount(0);
-    openDir(0);
+    opendir2();
 //    readSuper(0);
     return 0;
 }
