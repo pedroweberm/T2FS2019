@@ -8,12 +8,15 @@
 #include "../include/apidisk.h"
 #include "../include/bitmap2.h"
 #include "../include/t2disk.h"
+#include "../include/linked.h"
+
 int mountedPartition;
 typedef struct t2fs_superbloco superbloco;
 typedef struct t2fs_inode inode;
 typedef struct t2fs_record record;
+typedef struct Node node;
 
-record *current_files;
+node* current_files;
 
 typedef struct mbr
 {
@@ -207,9 +210,9 @@ int format2(int partition, int sectors_per_block)
         Super.diskSize = mbrData.endUltimoBlocoPartTres - mbrData.endPrimeiroBlocoPartTres + 1;
         firstSector = mbrData.endPrimeiroBlocoPartTres;
     }
-
-    printf("\nDISK SIZE = %d e BLOCK SIZE = %d\n", Super.diskSize, Super.blockSize);
-    printf("FIRST SECTOR = %d\n", firstSector);
+//
+//    printf("\nDISK SIZE = %d e BLOCK SIZE = %d\n", Super.diskSize, Super.blockSize);
+//    printf("FIRST SECTOR = %d\n", firstSector);
 
     float rawInodeAreaSize = 0.1f * ((float)Super.diskSize);
     Super.inodeAreaSize = roundUp(rawInodeAreaSize);
@@ -230,9 +233,9 @@ int format2(int partition, int sectors_per_block)
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
 
-
-    printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE * sectors_per_block, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
-    printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", numberOfBlocks * sectors_per_block * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
+//
+//    printf("\nInode Area in bytes = %d\nInode size in bytes = 32\nNumber of Inodes = %d\nInode bitmap size in bytes = %d\nInode bitmap size in blocks = %d\n", Super.inodeAreaSize * SECTOR_SIZE * sectors_per_block, numberOfInodes, inodeBitmapSizeBytes, Super.freeInodeBitmapSize);
+//    printf("\n\nBlocks Area in bytes = %d\nBlock size in bytes = %d\nNumber of Blocks = %d\nBlocks bitmap size in bytes = %d\nBlocks bitmap size in blocks = %d\n", numberOfBlocks * sectors_per_block * SECTOR_SIZE, Super.blockSize * SECTOR_SIZE, numberOfBlocks, blocksBitmapSizeBytes, Super.freeBlocksBitmapSize);
 
     int iNodesPerSector = roundUp((float)(((float) Super.inodeAreaSize) / ((float) Super.freeInodeBitmapSize * (float) Super.blockSize)));
 
@@ -268,8 +271,8 @@ int format2(int partition, int sectors_per_block)
 
     closeBitmap2();
 
-    openBitmap2(firstSector);
-    printf("Bloco livre ao final da format = %d\n", searchBitmap2(BITMAP_DADOS, 0));
+//    openBitmap2(firstSector);
+//    printf("Bloco livre ao final da format = %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
 
 
@@ -328,7 +331,7 @@ int mount(int partition)
     read_sector(initialBlock, buffer);
     memcpy(&Super, buffer, sizeof(superbloco));
 
-    printf("Initial block na mount %d\n", initialBlock);
+//    printf("Initial block na mount %d\n", initialBlock);
 
     int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
     int firstBlockBitmapInodes = firstBlockBitmapFreeblocks + Super.freeBlocksBitmapSize;
@@ -340,10 +343,10 @@ int mount(int partition)
     int firstSectorInodeArea = firstBlockInodeArea * Super.blockSize;
     int firstSectorBlocksArea = firstBlockBlocksArea * Super.blockSize;
 
-    printf("\nPrimeiro bloco do bitmap de blocos: %d\nPrimeiro setor do bitmap de blocos: %d\n\n", firstBlockBitmapFreeblocks, firstSectorBitmapFreeblocks);
-    printf("Primeiro bloco do bitmap de Inodes: %d\nPrimeiro setor do bitmap de Inodes: %d\n\n", firstBlockBitmapInodes, firstSectorBitmapInodes);
-    printf("Primeiro bloco da area de inodes: %d\nPrimeiro setor da area de inodes: %d\n\n", firstBlockInodeArea, firstSectorInodeArea);
-    printf("Primeiro bloco da area de dados: %d\nPrimeiro setor da area de dados: %d\n\n", firstBlockBlocksArea, firstSectorBlocksArea);
+//    printf("\nPrimeiro bloco do bitmap de blocos: %d\nPrimeiro setor do bitmap de blocos: %d\n\n", firstBlockBitmapFreeblocks, firstSectorBitmapFreeblocks);
+//    printf("Primeiro bloco do bitmap de Inodes: %d\nPrimeiro setor do bitmap de Inodes: %d\n\n", firstBlockBitmapInodes, firstSectorBitmapInodes);
+//    printf("Primeiro bloco da area de inodes: %d\nPrimeiro setor da area de inodes: %d\n\n", firstBlockInodeArea, firstSectorInodeArea);
+//    printf("Primeiro bloco da area de dados: %d\nPrimeiro setor da area de dados: %d\n\n", firstBlockBlocksArea, firstSectorBlocksArea);
 
 
     openBitmap2(initialBlock);
@@ -388,9 +391,9 @@ int mount(int partition)
     mountedPartition = partition;
     closeBitmap2();
 
-    openBitmap2(initialBlock);
+//    openBitmap2(initialBlock);
 
-    printf("Primeiro livre depois da mount: %d\n", searchBitmap2(BITMAP_DADOS, 0));
+//    printf("Primeiro livre depois da mount: %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
 
     return 0;
@@ -522,6 +525,8 @@ int write2 (FILE2 handle, char *buffer, int size)
 DIR2 opendir2 (void)
 {
     inode iNodeDir;
+    record tempRecord;
+
     int initialBlock = 0;
 
     if (mountedPartition == 0)
@@ -541,7 +546,7 @@ DIR2 opendir2 (void)
         initialBlock = mbrData.endPrimeiroBlocoPartTres;
     }
 
-    printf("Initial block na open %d\n", initialBlock);
+//    printf("Initial block na open %d\n", initialBlock);
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
     read_sector(initialBlock, buffer);
@@ -557,15 +562,23 @@ DIR2 opendir2 (void)
     int firstSectorInodeArea = firstBlockInodeArea * Super.blockSize;
     int firstSectorBlocksArea = firstBlockBlocksArea * Super.blockSize;
 
-    printf("\nPrimeiro bloco do bitmap de blocos: %d\nPrimeiro setor do bitmap de blocos: %d\n\n", firstBlockBitmapFreeblocks, firstSectorBitmapFreeblocks);
-    printf("Primeiro bloco do bitmap de Inodes: %d\nPrimeiro setor do bitmap de Inodes: %d\n\n", firstBlockBitmapInodes, firstSectorBitmapInodes);
-    printf("Primeiro bloco da area de inodes: %d\nPrimeiro setor da area de inodes: %d\n\n", firstBlockInodeArea, firstSectorInodeArea);
-    printf("Primeiro bloco da area de dados: %d\nPrimeiro setor da area de dados: %d\n\n", firstBlockBlocksArea, firstSectorBlocksArea);
+//    printf("\nPrimeiro bloco do bitmap de blocos: %d\nPrimeiro setor do bitmap de blocos: %d\n\n", firstBlockBitmapFreeblocks, firstSectorBitmapFreeblocks);
+//    printf("Primeiro bloco do bitmap de Inodes: %d\nPrimeiro setor do bitmap de Inodes: %d\n\n", firstBlockBitmapInodes, firstSectorBitmapInodes);
+//    printf("Primeiro bloco da area de inodes: %d\nPrimeiro setor da area de inodes: %d\n\n", firstBlockInodeArea, firstSectorInodeArea);
+//    printf("Primeiro bloco da area de dados: %d\nPrimeiro setor da area de dados: %d\n\n", firstBlockBlocksArea, firstSectorBlocksArea);
 
     read_sector(firstSectorInodeArea, buffer);
     memcpy(&iNodeDir, buffer, sizeof(iNodeDir));
 
-    printf("Abri o inodedir e o size é = %d\n", iNodeDir.bytesFileSize);
+    int direct1 = iNodeDir.dataPtr[0];
+    int direct2 = iNodeDir.dataPtr[1];
+    int simpleIndirect = iNodeDir.singleIndPtr;
+    int doubleIndirect = iNodeDir.doubleIndPtr;
+
+    printf("DIRETOS          : %d e %d\n", direct1, direct2);
+    printf("INDIRETOS (S e D): %d e %d\n", simpleIndirect, doubleIndirect);
+
+    current_files = createLinkedList();
 
 }
 //
