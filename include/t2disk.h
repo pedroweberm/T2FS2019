@@ -35,12 +35,12 @@ struct t2fs_superbloco {
 
 
 /** Registro de diretório (entrada de diretório) - 19/2 */
-struct t2fs_record {
+typedef struct t2fs_record {
 	BYTE    TypeVal;
 	char    name[51];
 	DWORD	Nao_usado[2];
 	DWORD	inodeNumber;
-};
+} DIRENT2;
 
 
 /** i-node - 19/2 */

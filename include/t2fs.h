@@ -3,6 +3,7 @@
 #ifndef __LIBT2FS___
 #define __LIBT2FS___
 
+#include "t2disk.h"
 
 typedef int FILE2;
 typedef int DIR2;
@@ -15,11 +16,11 @@ typedef unsigned int DWORD;
 
 /** Registro com as informações da entrada de diretório, lida com readdir2 */
 #define MAX_FILE_NAME_SIZE 255
-typedef struct {
-    char    name[MAX_FILE_NAME_SIZE+1]; /* Nome do arquivo cuja entrada foi lida do disco      */
-    BYTE    fileType;                   /* Tipo do arquivo: regular (0x01) ou diretório (0x02) */
-    DWORD   fileSize;                   /* Numero de bytes do arquivo                          */
-} DIRENT2;
+//typedef struct {
+//    char    name[MAX_FILE_NAME_SIZE+1]; /* Nome do arquivo cuja entrada foi lida do disco      */
+//    BYTE    fileType;                   /* Tipo do arquivo: regular (0x01) ou diretório (0x02) */
+//    DWORD   fileSize;                   /* Numero de bytes do arquivo                          */
+//} DIRENT2;
 
 #pragma pack(pop)
 

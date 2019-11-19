@@ -13,10 +13,10 @@
 int mountedPartition;
 typedef struct t2fs_superbloco superbloco;
 typedef struct t2fs_inode inode;
-typedef struct t2fs_record record;
 typedef struct Node node;
 
 node* current_files;
+int dir_is_open = 0;
 DWORD dirIOPointer;
 
 typedef struct mbr
@@ -434,9 +434,9 @@ FILE2 create2 (char *filename)
     //assim tu descobre se tem que criar do zero
 //
 //    inode tempINode;
-//    record tempRecord;
+//    DIRENT2 tempRecord;
 //    inode currentInode;
-//    record currentRecord;
+//    DIRENT2 currentRecord;
 //    int superblockSectorsuperblockSector =0;
 //
 //    if (partition == 0)
@@ -528,7 +528,7 @@ int read_direct(DWORD blockToRead)
     if (blockToRead != -1)
     {
         int initialBlock = 0;
-        record tempRecord;
+        DIRENT2 tempRecord;
         node* tempNode;
 
         if (mountedPartition == 0)
@@ -552,7 +552,7 @@ int read_direct(DWORD blockToRead)
         read_sector(initialBlock, buffer);
         memcpy(&Super, buffer, sizeof(superbloco));
 
-        int records_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(record));
+        int records_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(DIRENT2));
         //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
 
         int sectorToRead = blockToRead * Super.blockSize;
@@ -566,7 +566,7 @@ int read_direct(DWORD blockToRead)
             for (j = 0; j < records_per_sector; j++)
             {
 
-                memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
+                memcpy(&tempRecord, &buffer[j * sizeof(DIRENT2)], sizeof(DIRENT2));
 
                 if (tempRecord.TypeVal == 0)
                 {
@@ -599,7 +599,7 @@ int read_simple_indirect(DWORD blockToRead)
     if (blockToRead != -1)
     {
         int initialBlock = 0;
-        record tempRecord;
+        DIRENT2 tempRecord;
         node* tempNode;
         DWORD tempBlockToRead = 0;
 
@@ -656,7 +656,7 @@ int read_double_indirect(DWORD blockToRead)
     if (blockToRead != -1)
     {
         int initialBlock = 0;
-        record tempRecord;
+        DIRENT2 tempRecord;
         node* tempNode;
         DWORD tempBlockToRead = 0;
         DWORD tempPointer = 0;
@@ -715,7 +715,7 @@ int read_double_indirect(DWORD blockToRead)
 DIR2 opendir2 (void)
 {
     inode iNodeDir;
-    record tempRecord;
+    DIRENT2 tempRecord;
     dirIOPointer = 0;
 
     int initialBlock = 0;
@@ -785,7 +785,14 @@ DIR2 opendir2 (void)
 //-----------------------------------------------------------------------------*/
 int readdir2 (DIRENT2 *dentry)
 {
-    return -1;
+//    DIRENT2 temp;
+//    if (!dir_is_open)
+//    {
+//        return -1;
+//    }
+//
+//    searchList(current_files, dentry->name);
+
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -796,7 +803,7 @@ int closedir2 (void)
     if (dir_is_open)
     {
         dir_is_open = 0;
-        current_files = null;
+        current_files = NULL;
     }
     return 0;
 }
