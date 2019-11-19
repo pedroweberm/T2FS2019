@@ -17,6 +17,7 @@ typedef struct t2fs_record record;
 typedef struct Node node;
 
 node* current_files;
+DWORD dirIOPointer;
 
 typedef struct mbr
 {
@@ -715,6 +716,7 @@ DIR2 opendir2 (void)
 {
     inode iNodeDir;
     record tempRecord;
+    dirIOPointer = 0;
 
     int initialBlock = 0;
 
@@ -763,9 +765,9 @@ DIR2 opendir2 (void)
     int direct2 = iNodeDir.dataPtr[1];
     int simpleIndirect = iNodeDir.singleIndPtr;
     int doubleIndirect = iNodeDir.doubleIndPtr;
-
-    printf("DIRETOS          : %d e %d\n", direct1, direct2);
-    printf("INDIRETOS (S e D): %d e %d\n", simpleIndirect, doubleIndirect);
+//
+//    printf("DIRETOS          : %d e %d\n", direct1, direct2);
+//    printf("INDIRETOS (S e D): %d e %d\n", simpleIndirect, doubleIndirect);
 
     current_files = createLinkedList();
 
@@ -774,6 +776,7 @@ DIR2 opendir2 (void)
     read_simple_indirect(simpleIndirect);
     read_double_indirect(doubleIndirect);
 
+    dir_is_open = 1;
     return 0;
 }
 //
@@ -790,7 +793,12 @@ int readdir2 (DIRENT2 *dentry)
 //-----------------------------------------------------------------------------*/
 int closedir2 (void)
 {
-    return -1;
+    if (dir_is_open)
+    {
+        dir_is_open = 0;
+        current_files = null;
+    }
+    return 0;
 }
 //
 ///*-----------------------------------------------------------------------------
