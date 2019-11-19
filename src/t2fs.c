@@ -359,26 +359,29 @@ int mount(int partition)
     iNodeDir.blocksFileSize = 0;
     iNodeDir.bytesFileSize = 0;
 
-    iNodeDir.dataPtr[0] = firstBlockBlocksArea + freeBlockBit;
-    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+//    iNodeDir.dataPtr[0] = firstBlockBlocksArea + freeBlockBit;
+    iNodeDir.dataPtr[0] = -1;
+//    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
 
-    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+//    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
-    iNodeDir.dataPtr[1] = firstBlockBlocksArea + freeBlockBit;
-    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+//    iNodeDir.dataPtr[1] = firstBlockBlocksArea + freeBlockBit;
+    iNodeDir.dataPtr[1] = -1;
+//    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
 
-    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+//    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
-    iNodeDir.singleIndPtr = firstBlockBlocksArea + freeBlockBit;
-    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+//    iNodeDir.singleIndPtr = firstBlockBlocksArea + freeBlockBit;
+    iNodeDir.singleIndPtr = -1;
+//    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
 
-    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
+//    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
-    iNodeDir.doubleIndPtr = firstBlockBlocksArea + freeBlockBit;
-    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
+//    iNodeDir.doubleIndPtr = firstBlockBlocksArea + freeBlockBit;
+    iNodeDir.doubleIndPtr = -1;
+//    setBitmap2(BITMAP_DADOS, freeBlockBit, 1);
 
-    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
-
+//    freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
     iNodeDir.RefCounter = 0;
     iNodeDir.reservado = 0;
@@ -521,78 +524,188 @@ int write2 (FILE2 handle, char *buffer, int size)
 
 int read_direct(DWORD blockToRead)
 {
-    int initialBlock = 0;
-    record tempRecord;
-    node* tempNode;
-
-    if (mountedPartition == 0)
+    if (blockToRead != -1)
     {
-        initialBlock = mbrData.endPrimeiroBlocoPartZero;
-    }
-    else if (mountedPartition == 1)
-    {
-        initialBlock = mbrData.endPrimeiroBlocoPartUm;
-    }
-    else if (mountedPartition == 2)
-    {
-        initialBlock = mbrData.endPrimeiroBlocoPartDois;
-    }
-    else if (mountedPartition == 3)
-    {
-        initialBlock = mbrData.endPrimeiroBlocoPartTres;
-    }
+        int initialBlock = 0;
+        record tempRecord;
+        node* tempNode;
 
-    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
-    read_sector(initialBlock, buffer);
-    memcpy(&Super, buffer, sizeof(superbloco));
-
-    int records_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(record));
-    //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
-
-    int sectorToRead = blockToRead * Super.blockSize;
-
-    int i = 0;
-    int j = 0;
-    for (i = 0; i < Super.blockSize; i++)
-    {
-        read_sector(sectorToRead + i, buffer);
-
-        for (j = 0; j < records_per_sector; j++)
+        if (mountedPartition == 0)
         {
+            initialBlock = mbrData.endPrimeiroBlocoPartZero;
+        }
+        else if (mountedPartition == 1)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartUm;
+        }
+        else if (mountedPartition == 2)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartDois;
+        }
+        else if (mountedPartition == 3)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartTres;
+        }
 
-            memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
+        BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+        read_sector(initialBlock, buffer);
+        memcpy(&Super, buffer, sizeof(superbloco));
 
-            if (tempRecord.TypeVal == 0)
+        int records_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(record));
+        //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
+
+        int sectorToRead = blockToRead * Super.blockSize;
+
+        int i = 0;
+        int j = 0;
+        for (i = 0; i < Super.blockSize; i++)
+        {
+            read_sector(sectorToRead + i, buffer);
+
+            for (j = 0; j < records_per_sector; j++)
             {
-                printf("Alcancei o final do bloco %d\n", blockToRead);
-                return 0;
-            }
-            else
-            {
-                tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber);
-                if(appendToList(current_files, tempNode) != 0)
+
+                memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
+
+                if (tempRecord.TypeVal == 0)
                 {
-                    return -1;
+                    printf("Alcancei o final do bloco %d\n", blockToRead);
+                    return 0;
+                }
+                else
+                {
+                    printf("Nao era invalido\n");
+                    tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber);
+                    if(appendToList(current_files, tempNode) != 0)
+                    {
+                        return -1;
+                    }
                 }
             }
+            printf("Alcancei o final do setor %d do bloco %d", sectorToRead + i, blockToRead);
         }
-        printf("Alcancei o final do setor %d do bloco %d", sectorToRead + i, blockToRead);
+        return 0;
     }
-    return 0;
+    else
+    {
+        return 0;
+    }
+
 }
 
 int read_simple_indirect(DWORD blockToRead)
 {
+    if (blockToRead != -1)
+    {
+        int initialBlock = 0;
+        record tempRecord;
+        node* tempNode;
+        DWORD tempBlockToRead = 0;
 
+        if (mountedPartition == 0)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartZero;
+        }
+        else if (mountedPartition == 1)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartUm;
+        }
+        else if (mountedPartition == 2)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartDois;
+        }
+        else if (mountedPartition == 3)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartTres;
+        }
 
-    return 0;
+        BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+        read_sector(initialBlock, buffer);
+        memcpy(&Super, buffer, sizeof(superbloco));
+
+        int pointers_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(DWORD));
+        //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
+
+        int sectorToRead = blockToRead * Super.blockSize;
+
+        int i = 0;
+        int j = 0;
+
+        for (i = 0; i < Super.blockSize; i++)
+        {
+            read_sector(sectorToRead + i, buffer);
+
+            for (j = 0; j < pointers_per_sector; j++)
+            {
+                memcpy(&tempBlockToRead, &buffer[j * sizeof(DWORD)], sizeof(DWORD));
+                read_direct(tempBlockToRead);
+            }
+        }
+        return 0;
+    }
+    else
+    {
+        return 0;
+    }
+
 }
 
 int read_double_indirect(DWORD blockToRead)
 {
+    if (blockToRead != -1)
+    {
+        int initialBlock = 0;
+        record tempRecord;
+        node* tempNode;
+        DWORD tempBlockToRead = 0;
+        DWORD tempPointer = 0;
 
+        if (mountedPartition == 0)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartZero;
+        }
+        else if (mountedPartition == 1)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartUm;
+        }
+        else if (mountedPartition == 2)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartDois;
+        }
+        else if (mountedPartition == 3)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartTres;
+        }
 
-    return 0;
+        BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+        read_sector(initialBlock, buffer);
+        memcpy(&Super, buffer, sizeof(superbloco));
+
+        int pointers_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(DWORD));
+        //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
+
+        int sectorToRead = blockToRead * Super.blockSize;
+
+        int i = 0;
+        int j = 0;
+
+        for (i = 0; i < Super.blockSize; i++)
+        {
+            read_sector(sectorToRead + i, buffer);
+
+            for (j = 0; j < pointers_per_sector; j++)
+            {
+                memcpy(&tempPointer, &buffer[j * sizeof(DWORD)], sizeof(DWORD));
+                read_simple_indirect(tempPointer);
+            }
+        }
+        return 0;
+    }
+    else
+    {
+        return 0;
+    }
+
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -660,6 +773,8 @@ DIR2 opendir2 (void)
     read_direct(direct2);
     read_simple_indirect(simpleIndirect);
     read_double_indirect(doubleIndirect);
+
+    return 0;
 }
 //
 ///*-----------------------------------------------------------------------------
