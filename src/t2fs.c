@@ -16,10 +16,13 @@ typedef struct t2fs_inode inode;
 typedef struct t2fs_record record;
 typedef struct Node node;
 
-node* current_files;
+node* files_in_dir;
+node* opened_files;
 int dir_is_open = 0;
 DWORD dirIOPointer;
 DWORD current_handle = 0;
+DWORD firstValidEntry = 0
+int firstValidEntrySet =0;
 
 typedef struct mbr
 {
@@ -503,10 +506,11 @@ FILE2 open2 (char *filename)
         return -1;
     }
 
-    fileIndex = getIndex(current_files, filename);
-    file = searchList(current_files, fileIndex);
+    fileIndex = getIndex(files_in_dir, filename);
+    file = searchList(files_in_dir, fileIndex);
 
     file->isOpen = 1;
+    opened_files = appendToList(opened_files, file);
 
     return file->handle;
 }
@@ -516,7 +520,27 @@ FILE2 open2 (char *filename)
 //-----------------------------------------------------------------------------*/
 int close2 (FILE2 handle)
 {
-    return -1;
+    node* file = malloc(sizeof(node));
+    int fileIndex;
+
+    if (!dir_is_open){
+        return -1;
+    }
+
+    fileIndex = getIndex(files_in_dir, filename);
+    file = searchList(files_in_dir, fileIndex);
+
+    if (file->isOpen)
+    {
+        file->isOpen = 0;
+        opened_files = removeFromList(opened_files, file->name);
+    }
+    else
+    {
+        printf("O arquivo solicitado nao estava aberto.\n");
+        return -1;
+    }
+
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -589,10 +613,13 @@ int read_direct(DWORD blockToRead)
                 }
                 else
                 {
-                    printf("Nao era invalido\n");
+                    if (!firstValidEntrySet)
+                    {
+                        firstValidEntry = j + i * Super.blockSize;
+                    }
                     tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber, 0, current_handle, 0);
                     current_handle += 1;
-                    if(appendToList(current_files, tempNode) != 0)
+                    if(appendToList(files_in_dir, tempNode) != 0)
                     {
                         return -1;
                     }
@@ -784,7 +811,7 @@ DIR2 opendir2 (void)
 //    printf("DIRETOS          : %d e %d\n", direct1, direct2);
 //    printf("INDIRETOS (S e D): %d e %d\n", simpleIndirect, doubleIndirect);
 
-    current_files = createLinkedList();
+    files_in_dir = createLinkedList();
 
     read_direct(direct1);
     read_direct(direct2);
@@ -828,7 +855,7 @@ int readdir2 (DIRENT2 *dentry)
         initialBlock = mbrData.endPrimeiroBlocoPartTres;
     }
 
-    tempRecord = searchList(current_files, dirIOPointer)->data;
+    tempRecord = searchList(files_in_dir, dirIOPointer)->data;
 
     strcpy(newDentry.name, tempRecord->name);
 
@@ -871,7 +898,8 @@ int closedir2 (void)
     if (dir_is_open)
     {
         dir_is_open = 0;
-        current_files = NULL;
+        files_in_dir = NULL;
+        firstValidEntrySet = 0;
     }
     return 0;
 }
