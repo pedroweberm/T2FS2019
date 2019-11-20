@@ -20,3 +20,5 @@ struct Node* removeFromList(struct Node* n, char* nodeName);
 
 struct Node* searchList(struct Node* n, int current_pointer);
 
+int getIndex(struct Node* n, char* nodeName);
+

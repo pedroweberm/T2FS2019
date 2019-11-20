@@ -496,17 +496,19 @@ int delete2 (char *filename)
 //-----------------------------------------------------------------------------*/
 FILE2 open2 (char *filename)
 {
-    node* file;
+    node* file = malloc(sizeof(node));
+    int fileIndex;
 
     if (!dir_is_open){
         return -1;
     }
 
-    file = searchList(current_files, dirIOPointer);
+    fileIndex = getIndex(current_files, filename);
+    file = searchList(current_files, fileIndex);
 
-    file.isOpen = 1;
+    file->isOpen = 1;
 
-    return file.handle;
+    return file->handle;
 }
 //
 ///*-----------------------------------------------------------------------------

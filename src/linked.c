@@ -66,6 +66,11 @@ struct Node* removeFromList(struct Node* n, char* nodeName)
                 free(aux_n->next);
                 return n;
             }
+            else
+            {
+                aux_n = aux_n->next;
+            }
+
         }
         return n;
     }
@@ -97,5 +102,31 @@ struct Node* searchList(struct Node* n, int current_pointer)
     else
     {
         return NULL;
+    }
+}
+
+int getIndex(struct Node* n, char* nodeName)
+{
+    struct Node* aux_n = n;
+    int i = 0;
+    if (aux_n != NULL)
+    {
+        while(aux_n != NULL)
+        {
+            if (strcmp(aux_n->data->name, nodeName))
+            {
+                return i;
+            }
+            else
+            {
+                aux_n = aux_n->next;
+                i += 1;
+            }
+        }
+        return -1;
+    }
+    else
+    {
+        return -1;
     }
 }
