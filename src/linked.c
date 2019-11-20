@@ -1,6 +1,7 @@
 #include "../include/linked.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 
 
@@ -18,14 +19,18 @@ struct Node* createLinkedList()
     return NULL;
 }
 
-struct Node* createNode(BYTE TypeVal, char name[], DWORD Nao_usado[2], DWORD inodeNumber)
+struct Node* createNode(BYTE TypeVal, char name[], DWORD Nao_usado[2], DWORD inodeNumber, int handle, int current_pointer, int isOpen)
 {
     struct Node* newNode = (struct Node*) malloc(sizeof(struct Node));
 
     newNode->data->TypeVal = TypeVal;
     strcpy(newNode->data->name, name);
     memcpy(newNode->data->Nao_usado, Nao_usado, 2 * sizeof(DWORD));
-    newNode->data.inodeNumber = inodeNumber;
+    newNode->data->inodeNumber = inodeNumber;
+    newNode->handle = handle;
+    newNode->current_pointer = current_pointer;
+    newNode->isOpen = isOpen;
+    newNode->next = NULL;
 
     return newNode;
 }
@@ -70,9 +75,10 @@ struct Node* removeFromList(struct Node* n, char* nodeName)
     }
 }
 
-struct t2fs_record* searchList(struct Node* n, int current_pointer)
+struct Node* searchList(struct Node* n, int current_pointer)
 {
     struct Node* aux_n = n;
+    int i = 0;
     if (aux_n != NULL)
     {
         while(aux_n->next != NULL)

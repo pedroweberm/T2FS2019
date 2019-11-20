@@ -19,6 +19,7 @@ typedef struct Node node;
 node* current_files;
 int dir_is_open = 0;
 DWORD dirIOPointer;
+DWORD current_handle = 0;
 
 typedef struct mbr
 {
@@ -495,7 +496,17 @@ int delete2 (char *filename)
 //-----------------------------------------------------------------------------*/
 FILE2 open2 (char *filename)
 {
+    node* file;
 
+    if (!dir_is_open){
+        return -1;
+    }
+
+    file = searchList(current_files, dirIOPointer);
+
+    file.isOpen = 1;
+
+    return file.handle;
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -577,7 +588,8 @@ int read_direct(DWORD blockToRead)
                 else
                 {
                     printf("Nao era invalido\n");
-                    tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber);
+                    tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber, 0, current_handle, 0);
+                    current_handle += 1;
                     if(appendToList(current_files, tempNode) != 0)
                     {
                         return -1;
@@ -781,8 +793,6 @@ DIR2 opendir2 (void)
     return 0;
 }
 
-
-
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para ler as entradas de um diretório.
@@ -816,7 +826,7 @@ int readdir2 (DIRENT2 *dentry)
         initialBlock = mbrData.endPrimeiroBlocoPartTres;
     }
 
-    tempRecord = searchList(current_files, dirIOPointer);
+    tempRecord = searchList(current_files, dirIOPointer)->data;
 
     strcpy(newDentry.name, tempRecord->name);
 
