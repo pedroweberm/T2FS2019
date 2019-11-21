@@ -83,6 +83,16 @@ int roundUp(float x)
     return (int) x;
 }
 
+int round(float x)
+{
+    if (x - (int) x >= 0.5)
+    {
+        return (int) x + 1;
+    }
+
+    return (int) x;
+}
+
 int floor(float x)
 {
     return (int) x;
@@ -397,12 +407,14 @@ int initializeBlock(DWORD block, DWORD value)
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
 
-    DWORD dummyBuffer[SECTOR_SIZE / 4] = {value};
-
     int i = 0;
+    int j = 0;
     for (i = 0; i < Super.blockSize; i++)
     {
-        memcpy(buffer, dummyBuffer, SECTOR_SIZE);
+        for (j = 0; j < SECTOR_SIZE / 4; j++)
+        {
+            memcpy(&buffer[j * sizeof(DWORD)], &value, sizeof(DWORD));
+        }
         write_sector(sectorToRead + i, buffer);
     }
 }
@@ -443,7 +455,7 @@ int writeRecToDir(record newRecord)
     int sectorToRead = 0;
     int indexInSector = 0;
 
-    printf("Records per sectors = %d\nRecords per block = %d\nRecordsD1 = %d\nRecordsD2 = %d\nRecordsInSimple = %d\n", recordsPerSector, recordsPerBlock, recordsInDirect1, recordsInDirect2, recordsInSimple);
+    //printf("Records per sectors = %d\nRecords per block = %d\nRecordsD1 = %d\nRecordsD2 = %d\nRecordsInSimple = %d\n", recordsPerSector, recordsPerBlock, recordsInDirect1, recordsInDirect2, recordsInSimple);
     if(recordsInDir < recordsInDirect1)
     {
         printf("Entrei no dataPtr[0]\n");
@@ -460,7 +472,7 @@ int writeRecToDir(record newRecord)
             iNodeDir.blocksFileSize += 1;
 
         }
-        sectorToRead = iNodeDir.dataPtr[0] * Super.blockSize;
+        sectorToRead = iNodeDir.dataPtr[0] * Super.blockSize + initialBlock;
         indexInSector = recordsInDir % recordsPerSector;
 
         read_sector(sectorToRead, buffer);
@@ -493,7 +505,7 @@ int writeRecToDir(record newRecord)
             iNodeDir.blocksFileSize += 1;
             printf("Agora virou %d\n", iNodeDir.dataPtr[1]);
         }
-        sectorToRead = iNodeDir.dataPtr[1] * Super.blockSize;
+        sectorToRead = iNodeDir.dataPtr[1] * Super.blockSize + initialBlock;
         indexInSector = (recordsInDir - recordsInDirect1) % recordsPerSector;
         printf("Setor a ser lido = %d\nIndice no setor = %d\n", sectorToRead, indexInSector);
 
@@ -515,21 +527,22 @@ int writeRecToDir(record newRecord)
             iNodeDir.singleIndPtr = searchBitmap2(BITMAP_DADOS, 0);
             setBitmap2(BITMAP_DADOS, iNodeDir.singleIndPtr, 1);
             closeBitmap2();
-            initializeBlock(iNodeDir.singleIndPtr, -1);
+            initializeBlock(iNodeDir.singleIndPtr + initialBlock, -1);
             printf("Agora virou %d no bloco de ponteitos\n", iNodeDir.singleIndPtr);
         }
 
         int pointerIndex = floor((recordsInDir - recordsInDirect2) / recordsPerBlock); // isso retorna qual BLOCO atual
-        int pointerSector = floor(pointerIndex/pointersPerSector);
+        int pointerSector = round(pointerIndex/pointersPerSector);
+        int pointerSectorInBlock = (recordsInDir - recordsInDirect2) % recordsPerSector;
         int pointerIndexInSector = pointerIndex % pointersPerSector;
 
-        printf("Indice pointer: %d\nsetor pointer: %d\nindice o store pointer: %d\nPointer per sec %d\n", pointerIndex, pointerSector, pointerIndexInSector, pointersPerSector);
+        printf("Indice pointer: %d\nsetor pointer: %d\nindice in sector pointer: %d\n", pointerIndex, pointerSector, pointerIndexInSector);
 
         int pointer;
 
-        read_sector(iNodeDir.singleIndPtr * Super.blockSize + pointerSector, buffer);
+        read_sector((iNodeDir.singleIndPtr + initialBlock) * Super.blockSize + pointerSector, buffer);
 
-        memcpy(&pointer, &buffer[pointerIndexInSector], sizeof(DWORD));
+        memcpy(&pointer, &buffer[pointerIndexInSector * sizeof(DWORD)], sizeof(DWORD));
 
         printf("Pointer %d\n", pointer);
 
@@ -541,18 +554,23 @@ int writeRecToDir(record newRecord)
             setBitmap2(BITMAP_DADOS, newPointer, 1);
             closeBitmap2();
             initializeBlock(newPointer + initialBlock, -1);
+            DWORD newPointerInBlock = newPointer + initialBlock;
 
-            read_sector(iNodeDir.singleIndPtr * Super.blockSize + pointerSector, buffer);
-            memcpy(&buffer[pointerIndexInSector], &newPointer, sizeof(DWORD));
+            read_sector((iNodeDir.singleIndPtr + initialBlock) * Super.blockSize + pointerSector, buffer);
+            memcpy(&buffer[pointerIndexInSector * sizeof(DWORD)], &newPointerInBlock, sizeof(DWORD));
 
-            write_sector(iNodeDir.singleIndPtr * Super.blockSize + pointerSector, &buffer);
+            write_sector((iNodeDir.singleIndPtr + initialBlock) * Super.blockSize + pointerSector, buffer);
+
             iNodeDir.blocksFileSize += 1;
-            printf("pointer era -1 agora eh %d\n", newPointer);
+
+            read_sector((iNodeDir.singleIndPtr + initialBlock) * Super.blockSize + pointerSector, buffer);
+
+            memcpy(&pointer, &buffer[pointerIndexInSector * sizeof(DWORD)], sizeof(DWORD));
+            printf("pointer era -1 agora eh %d\n", pointer);
         }
 
-
-        sectorToRead = iNodeDir.singleIndPtr * Super.blockSize + pointerSector;
-        indexInSector = (recordsInDir - recordsInDirect2) % pointersPerSector;
+        sectorToRead = (pointer + initialBlock) * Super.blockSize + pointerSectorInBlock;
+        indexInSector = (recordsInDir - recordsInDirect2) % recordsPerSector;
 
         read_sector(sectorToRead, buffer);
         memcpy(&buffer[sizeof(record) * indexInSector], &newRecord, sizeof(record));
@@ -655,12 +673,6 @@ FILE2 create2 (char *filename)
         read_sector(firstSectorInodeArea + inodeSector, buffer);
         memcpy(&buffer[sizeof(inode) * inodeIndexInsideSector], &newiNode, sizeof(inode));
         write_sector(firstSectorInodeArea + inodeSector, buffer);
-
-        inode asdijmaolfjun;
-        read_sector(firstSectorInodeArea + inodeSector, buffer2);
-        memcpy(&asdijmaolfjun, &buffer2[sizeof(inode) * inodeIndexInsideSector], sizeof(inode));
-
-        printf("Newi node ref = %d\n", asdijmaolfjun.RefCounter);
 
         // testado ate aqui
 
