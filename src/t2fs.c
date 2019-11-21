@@ -386,6 +386,22 @@ int unmount(void)
     return 0;
 }
 
+int initializeBlock(DWORD block, DWORD value)
+{
+    sectorToRead = block * Super.blockSize;
+
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+
+    DWORD dummyBuffer[SECTOR_SIZE / 4] = {-1};
+
+    int i = 0;
+    for (i = 0; i < Super.blockSize; i++)
+    {
+        memcpy(buffer, dummyBuffer, SECTOR_SIZE));
+        write_sector(sectorToRead + i, buffer);
+    }
+}
+
 int writeRecToDir(record newRecord)
 {
     inode iNodeDir;
@@ -426,10 +442,10 @@ int writeRecToDir(record newRecord)
         if (iNodeDir.dataPtr[0] == -1)
         {
             openBitmap2(firstBlock);
-            int freeBlock = searchBitmap2(BITMAP_DADOS, 0);
+            iNodeDir.dataPtr[0] = searchBitmap2(BITMAP_DADOS, 0);
 
-            iNodeDir.dataPtr[0] = freeBlock;
-
+            setBitmap2(BITMAP_DADOS, 1, iNodeDir.dataPtr[0]);
+            closeBitmap2();
 
         }
         sectorToRead = iNodeDir.dataPtr[0] * Super.blockSize;
@@ -441,6 +457,15 @@ int writeRecToDir(record newRecord)
     }
     else if (recordsInDir < recordsInSimple)
     {
+        if (iNodeDir.dataPtr[1] == -1)
+        {
+            openBitmap2(firstBlock);
+            iNodeDir.dataPtr[1] = searchBitmap2(BITMAP_DADOS, 0);
+
+            setBitmap2(BITMAP_DADOS, 1, iNodeDir.dataPtr[1]);
+            closeBitmap2();
+
+        }
         sectorToRead = iNodeDir.dataPtr[1] * Super.blockSize;
         indexInSector = recordsInDir % recordsInDirect1;
 
@@ -450,6 +475,18 @@ int writeRecToDir(record newRecord)
     }
     else if (recordsInDir < recordsInDouble)
     {
+        if (iNodeDir.singleIndPtr == -1)
+        {
+            openBitmap2(firstBlock);
+            iNodeDir.singleIndPtr = searchBitmap2(BITMAP_DADOS, 0);
+            setBitmap2(BITMAP_DADOS, 1, iNodeDir.singleIndPtr);
+            closeBitmap2();
+            initializeBlock(iNodeDir.singleIndPtr, -1)
+        }
+        blockIndex = roundUp(((recordsInDir - recordsInDirect2) / recordsPerSector)) - 1;
+
+
+
         sectorToRead = iNodeDir.singleIndPtr * Super.blockSize;
         indexInSector = recordsInDir % recordsInDirect1;
 
@@ -663,7 +700,7 @@ int read_direct(DWORD blockToRead)
         read_sector(initialBlock, buffer);
         memcpy(&Super, buffer, sizeof(superbloco));
 
-        int records_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(record));
+        int records_per_sector = roundUp(SECTOR_SIZE / sizeof(record));
         //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
 
         int sectorToRead = blockToRead * Super.blockSize;
@@ -739,7 +776,7 @@ int read_simple_indirect(DWORD blockToRead)
         read_sector(initialBlock, buffer);
         memcpy(&Super, buffer, sizeof(superbloco));
 
-        int pointers_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(DWORD));
+        int pointers_per_sector = roundUp(SECTOR_SIZE / sizeof(DWORD));
         //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
 
         int sectorToRead = blockToRead * Super.blockSize;
@@ -797,7 +834,7 @@ int read_double_indirect(DWORD blockToRead)
         read_sector(initialBlock, buffer);
         memcpy(&Super, buffer, sizeof(superbloco));
 
-        int pointers_per_sector = roundUp(SECTOR_SIZE * 8.0 / sizeof(DWORD));
+        int pointers_per_sector = roundUp(SECTOR_SIZE / sizeof(DWORD));
         //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
 
         int sectorToRead = blockToRead * Super.blockSize;
