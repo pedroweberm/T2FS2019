@@ -443,7 +443,7 @@ int writeRecToDir(record newRecord)
     int sectorToRead = 0;
     int indexInSector = 0;
 
-    printf("Records per sectors = %d\nRecords per block = %d\nRecordsD1 = %d\nRecordsD2 = %d\n", recordsPerSector, recordsPerBlock, recordsInDirect1, recordsInDirect2);
+    printf("Records per sectors = %d\nRecords per block = %d\nRecordsD1 = %d\nRecordsD2 = %d\nRecordsInSimple = %d\n", recordsPerSector, recordsPerBlock, recordsInDirect1, recordsInDirect2, recordsInSimple);
     if(recordsInDir < recordsInDirect1)
     {
         printf("Entrei no dataPtr[0]\n");
@@ -512,22 +512,22 @@ int writeRecToDir(record newRecord)
         {
             printf("Era -1 no bloco de ponteros\n");
             openBitmap2(initialBlock * Super.blockSize);
-            iNodeDir.singleIndPtr = searchBitmap2(BITMAP_DADOS, 0) + firstSectorBlocksArea;
+            iNodeDir.singleIndPtr = searchBitmap2(BITMAP_DADOS, 0);
             setBitmap2(BITMAP_DADOS, iNodeDir.singleIndPtr, 1);
             closeBitmap2();
             initializeBlock(iNodeDir.singleIndPtr, -1);
-            printf("Agora virou %d no bloco de ponteitos\n", iNodeDir.dataPtr[1]);
+            printf("Agora virou %d no bloco de ponteitos\n", iNodeDir.singleIndPtr);
         }
 
-        int pointerIndex = floor((recordsInDir - recordsInDirect2) / recordsPerBlock);
+        int pointerIndex = floor((recordsInDir - recordsInDirect2) / recordsPerBlock); // isso retorna qual BLOCO atual
         int pointerSector = floor(pointerIndex/pointersPerSector);
         int pointerIndexInSector = pointerIndex % pointersPerSector;
 
-        printf("Indice pointer: %d\nsetor pointer: %d\nindice o store pointer: %d\nPointer per bloc %d\n", pointerIndex, pointerSector, pointerIndexInSector, pointersPerBlock);
+        printf("Indice pointer: %d\nsetor pointer: %d\nindice o store pointer: %d\nPointer per sec %d\n", pointerIndex, pointerSector, pointerIndexInSector, pointersPerSector);
 
         int pointer;
 
-        read_sector(iNodeDir.singleIndPtr, buffer);
+        read_sector(iNodeDir.singleIndPtr * Super.blockSize + pointerSector, buffer);
 
         memcpy(&pointer, &buffer[pointerIndexInSector], sizeof(DWORD));
 
@@ -542,17 +542,17 @@ int writeRecToDir(record newRecord)
             closeBitmap2();
             initializeBlock(newPointer + initialBlock, -1);
 
-            read_sector(pointerSector, buffer);
-            memcpy(&buffer[pointerIndexInSector], &newPointer + initialBlock, sizeof(DWORD));
+            read_sector(iNodeDir.singleIndPtr * Super.blockSize + pointerSector, buffer);
+            memcpy(&buffer[pointerIndexInSector], &newPointer, sizeof(DWORD));
 
-            write_sector(pointerSector, &buffer);
+            write_sector(iNodeDir.singleIndPtr * Super.blockSize + pointerSector, &buffer);
             iNodeDir.blocksFileSize += 1;
             printf("pointer era -1 agora eh %d\n", newPointer);
         }
 
 
-        sectorToRead = iNodeDir.singleIndPtr * Super.blockSize;
-        indexInSector = recordsInDir % recordsInDirect1;
+        sectorToRead = iNodeDir.singleIndPtr * Super.blockSize + pointerSector;
+        indexInSector = (recordsInDir - recordsInDirect2) % pointersPerSector;
 
         read_sector(sectorToRead, buffer);
         memcpy(&buffer[sizeof(record) * indexInSector], &newRecord, sizeof(record));
