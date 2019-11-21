@@ -1,20 +1,34 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "../include/t2fs.h"
 
 int main()
 {
-
     printf("Main\n");
     initT2FS();
     format2(0, 2);
     mount(0);
     opendir2();
     int i = 0;
-    for (i = 0; i < 50; i++)
-    {
-        create2(itoa(i));
-    }
+
+    create2("a");
+    create2("aa");
+    create2("aaa");
+    create2("aaaa");
+    create2("aaaaa");
+    create2("aaaaaa");
+    create2("aaaaaaa");
+    create2("aaaaaaaa");
+    create2("aaaaaaaaa");
+    create2("aaaaaaaaaa");
+    create2("aaaaaaaaaaa");
+    create2("aaaaaaaaaaaa");
+    create2("aaaaaaaaaaaaa");
+    create2("aaaaaaaaaaaaaa");
+    create2("aaaaaaaaaaaaaaa");
+    create2("aaaaaaaaaaaaaaaa");
+    create2("aaaaaaaaaaaaaaaa");
 
     return 0;
 }

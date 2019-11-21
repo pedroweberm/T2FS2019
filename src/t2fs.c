@@ -427,6 +427,7 @@ int writeRecToDir(record newRecord)
     memcpy(&iNodeDir, buffer, sizeof(iNodeDir));
 
     int recordsInDir = iNodeDir.bytesFileSize / sizeof(record);
+    printf("BYTES FILE SIZE %d\nrecordsInDir = %d\n", iNodeDir.bytesFileSize,  recordsInDir);
 
     int recordsPerSector = SECTOR_SIZE / sizeof(record);
     int recordsPerBlock = Super.blockSize * recordsPerSector;
@@ -442,7 +443,8 @@ int writeRecToDir(record newRecord)
     int sectorToRead = 0;
     int indexInSector = 0;
 
-    if(recordsInDir < recordsInDirect2)
+    printf("Records per sectors = %d\nRecords per block = %d\nRecordsD1 = %d\nRecordsD2 = %d\n", recordsPerSector, recordsPerBlock, recordsInDirect1, recordsInDirect2);
+    if(recordsInDir < recordsInDirect1)
     {
         printf("Entrei no dataPtr[0]\n");
         if (iNodeDir.dataPtr[0] == -1)
@@ -475,20 +477,26 @@ int writeRecToDir(record newRecord)
         printf("Name = %s\n", newRecord2.name);
         iNodeDir.bytesFileSize += sizeof(record);
     }
-    else if (recordsInDir < recordsInSimple)
+    else if (recordsInDir < recordsInDirect2)
     {
+        printf("Entrei no iNodeDir.dataPtr[1]\n");
+
         if (iNodeDir.dataPtr[1] == -1)
         {
+            printf("Era -1\n");
+
             openBitmap2(initialBlock * Super.blockSize);
             iNodeDir.dataPtr[1] = searchBitmap2(BITMAP_DADOS, 0);
 
             setBitmap2(BITMAP_DADOS, iNodeDir.dataPtr[1], 1);
             closeBitmap2();
             iNodeDir.blocksFileSize += 1;
-
+            printf("Agora virou %d\n", iNodeDir.dataPtr[1]);
         }
         sectorToRead = iNodeDir.dataPtr[1] * Super.blockSize;
-        indexInSector = recordsInDir % recordsInDirect1;
+        indexInSector = (recordsInDir - recordsInDirect1) % recordsPerSector;
+        printf("Setor a ser lido = %d\nIndice no setor = %d\n", sectorToRead, indexInSector);
+
 
         read_sector(sectorToRead, buffer);
         memcpy(&buffer[sizeof(record) * indexInSector], &newRecord, sizeof(record));
@@ -497,8 +505,9 @@ int writeRecToDir(record newRecord)
         iNodeDir.bytesFileSize += sizeof(record);
 
     }
-    else if (recordsInDir < recordsInDouble)
+    else if (recordsInDir < recordsInSimple)
     {
+        printf("SAJONFIAEKHYBLKAJESRGFYBVHE KASU\n");
         if (iNodeDir.singleIndPtr == -1)
         {
             openBitmap2(initialBlock * Super.blockSize);
