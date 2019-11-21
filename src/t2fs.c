@@ -16,13 +16,17 @@ typedef struct t2fs_inode inode;
 typedef struct t2fs_record record;
 typedef struct Node node;
 
+
+int recordsToRead;
+int recordsRead;
 node* files_in_dir;
 node* opened_files;
 int dir_is_open = 0;
 DWORD dirIOPointer;
 DWORD current_handle = 0;
-DWORD firstValidEntry = 0
-int firstValidEntrySet =0;
+DWORD firstValidEntry = 0;
+int firstValidEntrySet = 0;
+int initialBlock = 0;
 
 typedef struct mbr
 {
@@ -105,53 +109,7 @@ int logMbr()
     return 0;
 
 }
-int readSuper(int partition)
-{
-    int sectorToRead = 0;
-    int i = 0;
-    if (partition == 0)
-    {
-        sectorToRead = mbrData.endPrimeiroBlocoPartZero;
-    }
-    else if (partition == 1)
-    {
-        sectorToRead = mbrData.endPrimeiroBlocoPartUm;
-    }
-    else if (partition == 2)
-    {
-        sectorToRead = mbrData.endPrimeiroBlocoPartDois;
-    }
-    else if (partition == 3)
-    {
-        sectorToRead = mbrData.endPrimeiroBlocoPartTres;
-    }
 
-    printf(" \nSECTOR TO READ = %d\n", sectorToRead);
-
-    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
-    if(read_sector(sectorToRead, buffer) != 0)
-    {
-        printf("Error: Failed reading sector 0!\n");
-        return -1;
-    }
-
-    memcpy(&Super, buffer, sizeof(superbloco));
-
-    printf("SUPER VERSION = %d\n", (int) Super.version);
-    printf("SUPER ID = ");
-    for (i = 0; i < 4; i++)
-    {
-        printf("%c", Super.id[i]);
-
-    }
-    printf("\n");
-    printf("SUPER BLOCKSIZE = %d\n", (int) Super.superblockSize);
-    printf("SUPER BITMAP SIZE = %d\n", (int) Super.freeBlocksBitmapSize);
-    printf("SUPER INODEBITMAP SIZE = %d\n", (int) Super.freeInodeBitmapSize);
-    printf("SUPER INODEAREA SIZE = %d\n", (int) Super.inodeAreaSize);
-
-    return 0;
-}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Informa a identificação dos desenvolvedores do T2FS.
@@ -194,31 +152,31 @@ int format2(int partition, int sectors_per_block)
     Super.version = 32306;
     Super.superblockSize = 1;
     Super.blockSize = sectors_per_block;
-    int firstSector = 0;
+    int firstBlock = 0;
 
     if (partition == 0)
     {
         Super.diskSize = mbrData.endUltimoBlocoPartZero - mbrData.endPrimeiroBlocoPartZero + 1;
-        firstSector = mbrData.endPrimeiroBlocoPartZero;
+        firstBlock = mbrData.endPrimeiroBlocoPartZero;
     }
     else if (partition == 1)
     {
         Super.diskSize = mbrData.endUltimoBlocoPartUm - mbrData.endPrimeiroBlocoPartUm + 1;
-        firstSector = mbrData.endPrimeiroBlocoPartUm;
+        firstBlock = mbrData.endPrimeiroBlocoPartUm;
     }
     else if (partition == 2)
     {
         Super.diskSize = mbrData.endUltimoBlocoPartDois - mbrData.endPrimeiroBlocoPartDois + 1;
-        firstSector = mbrData.endPrimeiroBlocoPartDois;
+        firstBlock = mbrData.endPrimeiroBlocoPartDois;
     }
     else if (partition == 3)
     {
         Super.diskSize = mbrData.endUltimoBlocoPartTres - mbrData.endPrimeiroBlocoPartTres + 1;
-        firstSector = mbrData.endPrimeiroBlocoPartTres;
+        firstBlock = mbrData.endPrimeiroBlocoPartTres;
     }
 //
 //    printf("\nDISK SIZE = %d e BLOCK SIZE = %d\n", Super.diskSize, Super.blockSize);
-//    printf("FIRST SECTOR = %d\n", firstSector);
+//    printf("FIRST SECTOR = %d\n", initialBlock);
 
     float rawInodeAreaSize = 0.1f * ((float)Super.diskSize);
     Super.inodeAreaSize = roundUp(rawInodeAreaSize);
@@ -246,6 +204,8 @@ int format2(int partition, int sectors_per_block)
     int iNodesPerSector = roundUp((float)(((float) Super.inodeAreaSize) / ((float) Super.freeInodeBitmapSize * (float) Super.blockSize)));
 
     memcpy(buffer, &Super, sizeof(superbloco));
+
+    int firstSector = firstBlock * Super.blockSize;
     write_sector(firstSector, buffer);
 
     openBitmap2(firstSector);
@@ -277,13 +237,13 @@ int format2(int partition, int sectors_per_block)
 
     closeBitmap2();
 
-//    openBitmap2(firstSector);
+//    openBitmap2(initialBlock);
 //    printf("Bloco livre ao final da format = %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
 
 
 
-//    read_sector(firstSector, buffer);
+//    read_sector(initialBlock, buffer);
 //
 //    DWORD temp;
 //    DWORD checksum = 0;
@@ -304,7 +264,7 @@ int format2(int partition, int sectors_per_block)
 //
 //    memcpy(buffer, &Super, sizeof(superbloco));
 //
-//    write_sector(firstSector, buffer);
+//    write_sector(initialBlock, buffer);
 
 
 }
@@ -314,8 +274,6 @@ int format2(int partition, int sectors_per_block)
 //-----------------------------------------------------------------------------*/
 int mount(int partition)
 {
-    int initialBlock = 0;
-
     if (partition == 0)
     {
         initialBlock = mbrData.endPrimeiroBlocoPartZero;
@@ -333,9 +291,11 @@ int mount(int partition)
         initialBlock = mbrData.endPrimeiroBlocoPartTres;
     }
 
+//    int firstSector = initialBlock * Super.blockSize;
+//
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
-    read_sector(initialBlock, buffer);
-    memcpy(&Super, buffer, sizeof(superbloco));
+//    read_sector(initialBlock, buffer);
+//    memcpy(&Super, buffer, sizeof(superbloco));
 
 //    printf("Initial block na mount %d\n", initialBlock);
 
@@ -425,6 +385,86 @@ int unmount(void)
 
     return 0;
 }
+
+int writeRecToDir(record newRecord)
+{
+    inode iNodeDir;
+
+    BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+
+    int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
+    int firstBlockBitmapInodes = firstBlockBitmapFreeblocks + Super.freeBlocksBitmapSize;
+    int firstBlockInodeArea = firstBlockBitmapInodes + Super.freeInodeBitmapSize;
+    int firstBlockBlocksArea = firstBlockInodeArea + Super.inodeAreaSize;
+
+    int firstSectorBitmapFreeblocks = firstBlockBitmapFreeblocks * Super.blockSize;
+    int firstSectorBitmapInodes = firstBlockBitmapInodes * Super.blockSize;
+    int firstSectorInodeArea = firstBlockInodeArea * Super.blockSize;
+    int firstSectorBlocksArea = firstBlockBlocksArea * Super.blockSize;
+
+    read_sector(firstSectorInodeArea, buffer);
+    memcpy(&iNodeDir, buffer, sizeof(iNodeDir));
+
+    int recordsInDir = iNodeDir.bytesFileSize / sizeof(record);
+
+    int recordsPerSector = SECTOR_SIZE * sizeof(BYTE) / sizeof(record);
+    int recordsPerBlock = Super.blockSize * recordsPerSector;
+
+    int pointersPerSector = SECTOR_SIZE * sizeof(BYTE) / sizeof(DWORD);
+    int pointersPerBlock = Super.blockSize * pointersPerSector;
+
+    int recordsInDirect1 = recordsPerBlock;
+    int recordsInDirect2 = recordsInDirect1 + recordsPerBlock;
+    int recordsInSimple  = recordsInDirect2 + pointersPerBlock * (recordsPerBlock);
+    int recordsInDouble  = recordsInSimple  + pointersPerBlock * pointersPerBlock * (recordsPerBlock);
+
+    int sectorToRead = 0;
+    int indexInSector = 0;
+
+    if(recordsInDir < recordsInDirect2)
+    {
+        if (iNodeDir.dataPtr[0] == -1)
+        {
+            openBitmap2(firstBlock);
+            int freeBlock = searchBitmap2(BITMAP_DADOS, 0);
+
+            iNodeDir.dataPtr[0] = freeBlock;
+
+
+        }
+        sectorToRead = iNodeDir.dataPtr[0] * Super.blockSize;
+        indexInSector = recordsInDir % recordsPerSector;
+
+        read_sector(sectorToRead, buffer);
+        memcpy(&buffer[sizeof(record) * indexInSector], newRecord, sizeof(record));
+        write_sector(sectorToRead, buffer);
+    }
+    else if (recordsInDir < recordsInSimple)
+    {
+        sectorToRead = iNodeDir.dataPtr[1] * Super.blockSize;
+        indexInSector = recordsInDir % recordsInDirect1;
+
+        read_sector(sectorToRead, buffer);
+        memcpy(&buffer[sizeof(record) * indexInSector], newRecord, sizeof(record));
+        write_sector(sectorToRead, buffer);
+    }
+    else if (recordsInDir < recordsInDouble)
+    {
+        sectorToRead = iNodeDir.singleIndPtr * Super.blockSize;
+        indexInSector = recordsInDir % recordsInDirect1;
+
+        read_sector(sectorToRead, buffer);
+        memcpy(&buffer[sizeof(record) * indexInSector], newRecord, , sizeof(record));
+        write_sector(sectorToRead, buffer);
+    }
+    else
+    {
+
+    }
+
+
+
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para criar um novo arquivo no disco e abrí-lo,
@@ -435,53 +475,84 @@ int unmount(void)
 //-----------------------------------------------------------------------------*/
 FILE2 create2 (char *filename)
 {
+    node* file = malloc(sizeof(node));
+    int fileIndex = 0;
+
+
     //a ideia eh passar por todos os blocos de dados do inode do diretorio, olhando pra ver se o nome é igual ao passado
     //assim tu descobre se tem que criar do zero
-//
-//    inode tempINode;
-//    record tempRecord;
-//    inode currentInode;
-//    record currentRecord;
-//    int superblockSectorsuperblockSector =0;
-//
-//    if (partition == 0)
-//    {
-//        superblockSector = mbrData.endPrimeiroBlocoPartZero;
-//    }
-//    else if (partition == 1)
-//    {
-//        superblockSector = mbrData.endPrimeiroBlocoPartUm;
-//    }
-//    else if (partition == 2)
-//    {
-//        superblockSector = mbrData.endPrimeiroBlocoPartDois;
-//    }
-//    else if (partition == 3)
-//    {
-//        superblockSector = mbrData.endPrimeiroBlocoPartTres;
-//    }
-//
-//    read_sector(superblockSector, &Super);
-//
-//    int firstBlockBitmapFreeblocks = superblockSector + 1;
-//    int firstSectorBitmapInodes = firstBlockBitmapFreeblocks + Super.freeBlocksBitmapSize;
-//    int firstSectorInodeArea = firstSectorBitmapInodes + Super.freeInodeBitmapSize;
-//    int firstBlockBlocksArea = firstSectorInodeArea + Super.inodeAreaSize;
-//
-//    int freeInodeBit = searchBitmap2(BITMAP_INODE, 0);
-//    int freeBlockBit = searchBitmap2(BITMAP_DADOS, 0);
 
-//    //skip dir's iNode
-//    int currentInodeIndex = 1;
-//    while (currentInodeIndex < freeInodeBit){
-//
-//        read_sector();
-//        memcpy(currentInode
-//
-//        currentInodeIndex += 1
-//
-//    }
+    if(!dir_is_open)
+    {
+        return -1;
+    }
 
+    fileIndex = getIndex(files_in_dir, filename);
+    file = searchList(files_in_dir, fileIndex);
+
+    if (file != NULL)
+    {
+        // ja exsitia acrquwibo com esase nome
+
+
+    }
+    else
+    {
+        record newRecord;
+        inode newiNode;
+
+        newRecord.TypeVal = 1;
+        strcpy(newRecord.name, filename);
+
+        BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+        read_sector(initialBlock, buffer);
+        memcpy(&Super, buffer, sizeof(superbloco));
+
+        openBitmap2(initialBlock);
+
+        int availableINode = searchBitmap2(BITMAP_INODE, 0);
+        newRecord.inodeNumber = availableINode;
+
+        setBitmap2(BITMAP_INODE, 1, availableINode);
+
+        newiNode.blocksFileSize = 0;
+        newiNode.bytesFileSize = 0;
+
+        newiNode.dataPtr[0] = -1;
+        newiNode.dataPtr[1] = -1;
+        newiNode.singleIndPtr = -1;
+        newiNode.doubleIndPtr = -1;
+
+        newiNode.RefCounter = 1;
+
+        closeBitmap2();
+
+
+        int inodes_per_sector = roundUp((SECTOR_SIZE * 256) / 32.0);
+
+
+        //writeInode(newiNode, availableINODE)
+        int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
+        int firstBlockBitmapInodes = firstBlockBitmapFreeblocks + Super.freeBlocksBitmapSize;
+        int firstBlockInodeArea = firstBlockBitmapInodes + Super.freeInodeBitmapSize;
+        int firstBlockBlocksArea = firstBlockInodeArea + Super.inodeAreaSize;
+
+        int firstSectorBitmapFreeblocks = firstBlockBitmapFreeblocks * Super.blockSize;
+        int firstSectorBitmapInodes = firstBlockBitmapInodes * Super.blockSize;
+        int firstSectorInodeArea = firstBlockInodeArea * Super.blockSize;
+        int firstSectorBlocksArea = firstBlockBlocksArea * Super.blockSize;
+
+        int inodeSector = newRecord.inodeNumber / inodes_per_sector;
+        int inodeIndexInsideSector = newRecord.inodeNumber % inodes_per_sector;
+
+        read_sector(firstSectorInodeArea + inodeSector, buffer);
+        memcpy(&buffer[sizeof(inode) * inodeIndexInsideSector], &newiNode, sizeof(inode));
+        write_sector(firstSectorInodeArea + inodeSector, buffer);
+
+        writeRecToDir(newRecord);
+
+        open2(filename);
+    }
 
 
 }
@@ -502,7 +573,8 @@ FILE2 open2 (char *filename)
     node* file = malloc(sizeof(node));
     int fileIndex;
 
-    if (!dir_is_open){
+    if (!dir_is_open)
+    {
         return -1;
     }
 
@@ -520,26 +592,27 @@ FILE2 open2 (char *filename)
 //-----------------------------------------------------------------------------*/
 int close2 (FILE2 handle)
 {
-    node* file = malloc(sizeof(node));
-    int fileIndex;
-
-    if (!dir_is_open){
-        return -1;
-    }
-
-    fileIndex = getIndex(files_in_dir, filename);
-    file = searchList(files_in_dir, fileIndex);
-
-    if (file->isOpen)
-    {
-        file->isOpen = 0;
-        opened_files = removeFromList(opened_files, file->name);
-    }
-    else
-    {
-        printf("O arquivo solicitado nao estava aberto.\n");
-        return -1;
-    }
+//    node* file = malloc(sizeof(node));
+//    int fileIndex;
+//
+//    if (!dir_is_open)
+//    {
+//        return -1;
+//    }
+//
+//    fileIndex = getIndex(files_in_dir, filename);
+//    file = searchList(files_in_dir, fileIndex);
+//
+//    if (file->isOpen)
+//    {
+//        file->isOpen = 0;
+//        opened_files = removeFromList(opened_files, file->name);
+//    }
+//    else
+//    {
+//        printf("O arquivo solicitado nao estava aberto.\n");
+//        return -1;
+//    }
 
 }
 //
@@ -603,27 +676,27 @@ int read_direct(DWORD blockToRead)
 
             for (j = 0; j < records_per_sector; j++)
             {
-
-                memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
-
-                if (tempRecord.TypeVal == 0)
+                if(recordsRead < recordsToRead)
                 {
-                    printf("Alcancei o final do bloco %d\n", blockToRead);
-                    return 0;
-                }
-                else
-                {
-                    if (!firstValidEntrySet)
-                    {
-                        firstValidEntry = j + i * Super.blockSize;
-                    }
+                    memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
+
                     tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber, 0, current_handle, 0);
                     current_handle += 1;
+
                     if(appendToList(files_in_dir, tempNode) != 0)
                     {
                         return -1;
                     }
+
+                    recordsRead += 1;
                 }
+                else
+                {
+                    printf("Terminei de ler todos os blocos do diretorio.\n");
+                    recordsRead = 0;
+                    recordsToRead = 0;
+                }
+
             }
             printf("Alcancei o final do setor %d do bloco %d", sectorToRead + i, blockToRead);
         }
@@ -759,25 +832,25 @@ DIR2 opendir2 (void)
     inode iNodeDir;
     record tempRecord;
     dirIOPointer = 0;
-
-    int initialBlock = 0;
-
-    if (mountedPartition == 0)
-    {
-        initialBlock = mbrData.endPrimeiroBlocoPartZero;
-    }
-    else if (mountedPartition == 1)
-    {
-        initialBlock = mbrData.endPrimeiroBlocoPartUm;
-    }
-    else if (mountedPartition == 2)
-    {
-        initialBlock = mbrData.endPrimeiroBlocoPartDois;
-    }
-    else if (mountedPartition == 3)
-    {
-        initialBlock = mbrData.endPrimeiroBlocoPartTres;
-    }
+//
+//    int initialBlock = 0;
+//
+//    if (mountedPartition == 0)
+//    {
+//        initialBlock = mbrData.endPrimeiroBlocoPartZero;
+//    }
+//    else if (mountedPartition == 1)
+//    {
+//        initialBlock = mbrData.endPrimeiroBlocoPartUm;
+//    }
+//    else if (mountedPartition == 2)
+//    {
+//        initialBlock = mbrData.endPrimeiroBlocoPartDois;
+//    }
+//    else if (mountedPartition == 3)
+//    {
+//        initialBlock = mbrData.endPrimeiroBlocoPartTres;
+//    }
 
 //    printf("Initial block na open %d\n", initialBlock);
 
@@ -807,11 +880,13 @@ DIR2 opendir2 (void)
     int direct2 = iNodeDir.dataPtr[1];
     int simpleIndirect = iNodeDir.singleIndPtr;
     int doubleIndirect = iNodeDir.doubleIndPtr;
-//
-//    printf("DIRETOS          : %d e %d\n", direct1, direct2);
-//    printf("INDIRETOS (S e D): %d e %d\n", simpleIndirect, doubleIndirect);
+
+    printf("DIRETOS          : %d e %d\n", direct1, direct2);
+    printf("INDIRETOS (S e D): %d e %d\n", simpleIndirect, doubleIndirect);
 
     files_in_dir = createLinkedList();
+
+    recordsToRead = iNodeDir.bytesFileSize / sizeof(record);
 
     read_direct(direct1);
     read_direct(direct2);
@@ -879,8 +954,8 @@ int readdir2 (DIRENT2 *dentry)
     int inodeSector = tempRecord->inodeNumber / inodes_per_sector;
     int inodeIndexInsideSector = tempRecord->inodeNumber % inodes_per_sector;
 
-    read_sector(firstSectorInodeArea + inodeSector + inodeIndexInsideSector, buffer);
-    memcpy(&fileInode, buffer, sizeof(inode));
+    read_sector(firstSectorInodeArea + inodeSector, buffer);
+    memcpy(&fileInode, buffer[sizeof(inode) * inodeIndexInsideSector], sizeof(inode));
 
     newDentry.fileSize = fileInode.bytesFileSize;
     newDentry.fileType = tempRecord->TypeVal;
