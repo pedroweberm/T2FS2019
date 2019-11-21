@@ -507,28 +507,35 @@ int writeRecToDir(record newRecord)
     }
     else if (recordsInDir < recordsInSimple)
     {
-        printf("SAJONFIAEKHYBLKAJESRGFYBVHE KASU\n");
+        printf("\n\nEntrei no recordsInSimple\n");
         if (iNodeDir.singleIndPtr == -1)
         {
+            printf("Era -1 no bloco de ponteros\n");
             openBitmap2(initialBlock * Super.blockSize);
-            iNodeDir.singleIndPtr = searchBitmap2(BITMAP_DADOS, 0) + initialBlock;
+            iNodeDir.singleIndPtr = searchBitmap2(BITMAP_DADOS, 0) + firstSectorBlocksArea;
             setBitmap2(BITMAP_DADOS, iNodeDir.singleIndPtr, 1);
             closeBitmap2();
             initializeBlock(iNodeDir.singleIndPtr, -1);
+            printf("Agora virou %d no bloco de ponteitos\n", iNodeDir.dataPtr[1]);
         }
 
-        int pointerIndex = floor((floor(((recordsInDir - recordsInDirect2) / recordsPerSector))) / Super.blockSize);
+        int pointerIndex = floor((recordsInDir - recordsInDirect2) / recordsPerBlock);
         int pointerSector = floor(pointerIndex/pointersPerSector);
-        int pointerIndexInSector = pointerIndex & pointersPerSector;
+        int pointerIndexInSector = pointerIndex % pointersPerSector;
+
+        printf("Indice pointer: %d\nsetor pointer: %d\nindice o store pointer: %d\nPointer per bloc %d\n", pointerIndex, pointerSector, pointerIndexInSector, pointersPerBlock);
 
         int pointer;
 
-        read_sector(pointerSector, buffer);
+        read_sector(iNodeDir.singleIndPtr, buffer);
 
         memcpy(&pointer, &buffer[pointerIndexInSector], sizeof(DWORD));
 
+        printf("Pointer %d\n", pointer);
+
         if (pointer == -1)
         {
+            printf("pointer era -1\n");
             openBitmap2(initialBlock * Super.blockSize);
             int newPointer = searchBitmap2(BITMAP_DADOS, 0);
             setBitmap2(BITMAP_DADOS, newPointer, 1);
@@ -540,6 +547,7 @@ int writeRecToDir(record newRecord)
 
             write_sector(pointerSector, &buffer);
             iNodeDir.blocksFileSize += 1;
+            printf("pointer era -1 agora eh %d\n", newPointer);
         }
 
 
