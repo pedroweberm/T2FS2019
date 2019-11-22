@@ -61,6 +61,7 @@ int initialized = 0;
 
 int initT2FS ()
 {
+    opendir2();
     if (initialized == 0)
     {
         if (read_sector(0, (BYTE *)&mbrData) != 0)
@@ -282,6 +283,7 @@ int format2(int partition, int sectors_per_block)
 //
 //    write_sector(initialBlock, buffer);
 
+    closedir2();
 
 }
 //
@@ -290,6 +292,7 @@ int format2(int partition, int sectors_per_block)
 //-----------------------------------------------------------------------------*/
 int mount(int partition)
 {
+    initT2FS();
     if (partition == 0)
     {
         initialBlock = mbrData.endPrimeiroBlocoPartZero;
@@ -380,7 +383,7 @@ int mount(int partition)
 
 //    printf("Primeiro livre depois da mount: %d\n", searchBitmap2(BITMAP_DADOS, 0));
 
-
+    closedir2();
     return 0;
 }
 //
@@ -389,6 +392,7 @@ int mount(int partition)
 //-----------------------------------------------------------------------------*/
 int unmount(void)
 {
+    initT2FS();
     if (mountedPartition != -1)
     {
         mountedPartition = -1;
@@ -398,7 +402,7 @@ int unmount(void)
         printf("Can't unmount because there is no partition mounted\n");
         return -1;
     }
-
+    closedir2();
     return 0;
 }
 
@@ -717,6 +721,7 @@ int writeRecToDir(record newRecord)
 //-----------------------------------------------------------------------------*/
 FILE2 create2 (char *filename)
 {
+    initT2FS();
     node* file = malloc(sizeof(node));
     int fileIndex = 0;
 
@@ -830,6 +835,8 @@ FILE2 create2 (char *filename)
 
         writeRecToDir(newRecord);
 
+        opendir2();
+
         printf(" antes do create\n");
         DWORD dummy = 0;
         newRecord.Nao_usado[0] = dummy;
@@ -846,6 +853,7 @@ FILE2 create2 (char *filename)
     }
 
     open2(filename);
+    closedir2();
     return 0;
 }
 
@@ -855,6 +863,8 @@ FILE2 create2 (char *filename)
 //-----------------------------------------------------------------------------*/
 int delete2 (char *filename)
 {
+    initT2FS();
+    closedir2();
     return -1;
 }
 //
@@ -863,6 +873,7 @@ int delete2 (char *filename)
 //-----------------------------------------------------------------------------*/
 FILE2 open2 (char *filename)
 {
+    initT2FS();
     node* file = malloc(sizeof(node));
     int fileIndex;
 
@@ -885,6 +896,7 @@ FILE2 open2 (char *filename)
             return file->handle;
         }
     }
+    closedir2();
     return -1;
 
 }
@@ -894,6 +906,7 @@ FILE2 open2 (char *filename)
 //-----------------------------------------------------------------------------*/
 int close2 (FILE2 handle)
 {
+    initT2FS();
     node* file = malloc(sizeof(node));
     int fileIndex;
 
@@ -912,6 +925,7 @@ int close2 (FILE2 handle)
         num_opened -= 1;
         return 0;
     }
+    closedir2();
     return -1;
 }
 //
@@ -921,6 +935,8 @@ int close2 (FILE2 handle)
 //-----------------------------------------------------------------------------*/
 int read2 (FILE2 handle, char *buffer, int size)
 {
+    initT2FS();
+    closedir2();
     return -1;
 }
 //
@@ -930,6 +946,8 @@ int read2 (FILE2 handle, char *buffer, int size)
 //-----------------------------------------------------------------------------*/
 int write2 (FILE2 handle, char *buffer, int size)
 {
+    initT2FS();
+    closedir2();
     return -1;
 }
 
@@ -1176,6 +1194,7 @@ DIR2 opendir2 (void)
 //-----------------------------------------------------------------------------*/
 int readdir2 (DIRENT2 *dentry)
 {
+    initT2FS();
     inode fileInode;
     DIRENT2 newDentry;
     record* tempRecord;
@@ -1236,6 +1255,8 @@ int readdir2 (DIRENT2 *dentry)
     dirIOPointer += 1;
 
     memcpy(dentry, &newDentry, sizeof(DIRENT2));
+    closedir2();
+    return 0;
 }
 //
 ///*-----------------------------------------------------------------------------
@@ -1257,6 +1278,8 @@ int closedir2 (void)
 //-----------------------------------------------------------------------------*/
 int sln2 (char *linkname, char *filename)
 {
+    initT2FS();
+    closedir2();
     return -1;
 }
 //
@@ -1265,6 +1288,7 @@ int sln2 (char *linkname, char *filename)
 //-----------------------------------------------------------------------------*/
 int hln2(char *linkname, char *filename)
 {
+    initT2FS();
     inode inodeHardLink;
     inode fileiNode;
     record recordHardLink;
@@ -1320,8 +1344,10 @@ int hln2(char *linkname, char *filename)
 
         printf("InodeNumber file = %d, inodenumvber do harrrrrrrrrdlink = %d\n\ncara", file->data->inodeNumber, iNodeNumber);
 
+        closedir2();
         return 0;
     }
+    closedir2();
     return -1;
 
 }
