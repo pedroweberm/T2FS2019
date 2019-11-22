@@ -22,3 +22,5 @@ struct Node* searchList(struct Node* n, int current_pointer);
 
 int getIndex(struct Node* n, char* nodeName);
 
+int getIndexByHandle(struct Node* n, DWORD handle);
+

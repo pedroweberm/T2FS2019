@@ -828,11 +828,23 @@ FILE2 create2 (char *filename)
 
         // testado ate aqui
 
-
         writeRecToDir(newRecord);
 
+        printf(" antes do create\n");
+        DWORD dummy = 0;
+        newRecord.Nao_usado[0] = dummy;
+        newRecord.Nao_usado[1] = dummy;
+
+        node* newNode = createNode(newRecord.TypeVal, newRecord.name, newRecord.Nao_usado, newRecord.inodeNumber, current_handle, 0, 0);
+        current_handle += 1;
+        printf(" depois do create\n");
+
+        files_in_dir = appendToList(files_in_dir, newNode);
+
+        printf(" depois do apensis\n");
 
     }
+
     open2(filename);
     return 0;
 }
@@ -890,13 +902,13 @@ int close2 (FILE2 handle)
         return -1;
     }
 
-    fileIndex = getIndex(files_in_dir, filename);
+    fileIndex = getIndexByHandle(files_in_dir, handle);
     file = searchList(files_in_dir, fileIndex);
 
     if (file != NULL)
     {
         file->isOpen = 0;
-        opened_files = removeFromList(opened_files, filename);
+        opened_files = removeFromList(opened_files, file->data->name);
         num_opened -= 1;
         return 0;
     }
@@ -1120,31 +1132,8 @@ DIR2 opendir2 (void)
     inode iNodeDir;
     record tempRecord;
     dirIOPointer = 0;
-//
-//    int initialBlock = 0;
-//
-//    if (mountedPartition == 0)
-//    {
-//        initialBlock = mbrData.endPrimeiroBlocoPartZero;
-//    }
-//    else if (mountedPartition == 1)
-//    {
-//        initialBlock = mbrData.endPrimeiroBlocoPartUm;
-//    }
-//    else if (mountedPartition == 2)
-//    {
-//        initialBlock = mbrData.endPrimeiroBlocoPartDois;
-//    }
-//    else if (mountedPartition == 3)
-//    {
-//        initialBlock = mbrData.endPrimeiroBlocoPartTres;
-//    }
-
-//    printf("Initial block na open %d\n", initialBlock);
 
     BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
-//    read_sector(initialBlock, buffer);
-//    memcpy(&Super, buffer, sizeof(superbloco));
 
     int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
     int firstBlockBitmapInodes = firstBlockBitmapFreeblocks + Super.freeBlocksBitmapSize;
@@ -1155,11 +1144,6 @@ DIR2 opendir2 (void)
     int firstSectorBitmapInodes = firstBlockBitmapInodes * Super.blockSize;
     int firstSectorInodeArea = firstBlockInodeArea * Super.blockSize;
     int firstSectorBlocksArea = firstBlockBlocksArea * Super.blockSize;
-
-//    printf("\nPrimeiro bloco do bitmap de blocos: %d\nPrimeiro setor do bitmap de blocos: %d\n\n", firstBlockBitmapFreeblocks, firstSectorBitmapFreeblocks);
-//    printf("Primeiro bloco do bitmap de Inodes: %d\nPrimeiro setor do bitmap de Inodes: %d\n\n", firstBlockBitmapInodes, firstSectorBitmapInodes);
-//    printf("Primeiro bloco da area de inodes: %d\nPrimeiro setor da area de inodes: %d\n\n", firstBlockInodeArea, firstSectorInodeArea);
-//    printf("Primeiro bloco da area de dados: %d\nPrimeiro setor da area de dados: %d\n\n", firstBlockBlocksArea, firstSectorBlocksArea);
 
     read_sector(firstSectorInodeArea, buffer);
     memcpy(&iNodeDir, buffer, sizeof(iNodeDir));
@@ -1281,7 +1265,65 @@ int sln2 (char *linkname, char *filename)
 //-----------------------------------------------------------------------------*/
 int hln2(char *linkname, char *filename)
 {
+    inode inodeHardLink;
+    inode fileiNode;
+    record recordHardLink;
+
+    node* file = malloc(sizeof(node));
+    int fileIndex;
+
+    if (!dir_is_open)
+    {
+        return -1;
+    }
+
+    fileIndex = getIndex(files_in_dir, filename);
+    printf("File index = %d\n", fileIndex);
+    file = searchList(files_in_dir, fileIndex);
+
+    printf("%s\n", file->data->name);
+
+    if (file != NULL)
+    {
+        int inodes_per_sector = roundUp((SECTOR_SIZE) / 32.0);
+
+        int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
+        int firstBlockBitmapInodes = firstBlockBitmapFreeblocks + Super.freeBlocksBitmapSize;
+        int firstBlockInodeArea = firstBlockBitmapInodes + Super.freeInodeBitmapSize;
+        int firstBlockBlocksArea = firstBlockInodeArea + Super.inodeAreaSize;
+
+        int firstSectorBitmapFreeblocks = firstBlockBitmapFreeblocks * Super.blockSize;
+        int firstSectorBitmapInodes = firstBlockBitmapInodes * Super.blockSize;
+        int firstSectorInodeArea = firstBlockInodeArea * Super.blockSize;
+        int firstSectorBlocksArea = firstBlockBlocksArea * Super.blockSize;
+
+        int inodeSector = file->data->inodeNumber / inodes_per_sector;
+        int inodeIndexInsideSector =  file->data->inodeNumber % inodes_per_sector;
+
+
+        BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+
+        int iNodeNumber = file->data->inodeNumber;
+
+        recordHardLink.TypeVal = 1;
+        strcpy(recordHardLink.name, linkname);
+        recordHardLink.inodeNumber = iNodeNumber;
+
+        read_sector(firstSectorInodeArea + inodeSector, buffer);
+        memcpy(&fileiNode, buffer[sizeof(inode) * inodeIndexInsideSector], sizeof(inode));
+
+        fileiNode.RefCounter += 1;
+
+        memcpy(buffer[sizeof(inode) * inodeIndexInsideSector], &fileiNode, sizeof(inode));
+        write_sector(firstSectorInodeArea + inodeSector, buffer);
+        writeRecToDir(recordHardLink);
+
+        printf("InodeNumber file = %d, inodenumvber do harrrrrrrrrdlink = %d\n\ncara", file->data->inodeNumber, iNodeNumber);
+
+        return 0;
+    }
     return -1;
+
 }
 //
 //

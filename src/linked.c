@@ -21,11 +21,16 @@ struct Node* createLinkedList()
 
 struct Node* createNode(BYTE TypeVal, char name[], DWORD Nao_usado[2], DWORD inodeNumber, int handle, int current_pointer, int isOpen)
 {
+    printf(" Antesd f rgstr fgsgsdgfsd\n");
     struct Node* newNode = (struct Node*) malloc(sizeof(struct Node));
 
     newNode->data->TypeVal = TypeVal;
+
     strcpy(newNode->data->name, name);
+
     memcpy(newNode->data->Nao_usado, Nao_usado, 2 * sizeof(DWORD));
+        printf(" despues doo emme cpy\n");
+
     newNode->data->inodeNumber = inodeNumber;
     newNode->handle = handle;
     newNode->current_pointer = current_pointer;
@@ -109,10 +114,13 @@ int getIndex(struct Node* n, char* nodeName)
 {
     struct Node* aux_n = n;
     int i = 0;
+    printf("sal\n");
+    printf("Node name passado = %s\n", nodeName);
     if (aux_n != NULL)
     {
         while(aux_n != NULL)
         {
+            printf("Node name atual = %s\n", aux_n->data->name);
             if (strcmp(aux_n->data->name, nodeName))
             {
                 return i;
@@ -129,4 +137,31 @@ int getIndex(struct Node* n, char* nodeName)
     {
         return -1;
     }
+}
+int getIndexByHandle(struct Node* n, DWORD handle)
+{
+    struct Node* aux_n = n;
+    int i = 0;
+    if (aux_n != NULL)
+    {
+        while(aux_n != NULL)
+        {
+            if (aux_n->handle == handle)
+            {
+                return i;
+            }
+            else
+            {
+                aux_n = aux_n->next;
+                i += 1;
+            }
+        }
+        return -1;
+    }
+    else
+    {
+        return -1;
+    }
+
+
 }
