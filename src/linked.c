@@ -85,7 +85,8 @@ struct Node* removeFromList(struct Node* n, char* nodeName)
 
 struct Node* searchList(struct Node* n, int current_pointer)
 {
-    struct Node* aux_n = n;
+    struct Node* aux_n = malloc(sizeof(struct Node));
+    aux_n = n;
     int i = 0;
     if (aux_n != NULL)
     {

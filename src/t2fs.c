@@ -29,6 +29,9 @@ int firstValidEntrySet = 0;
 int initialBlock = 0;
 int num_opened = 0;
 
+DWORD current_pointer = 0;
+
+
 typedef struct mbr
 {
     WORD versao;
@@ -930,6 +933,140 @@ int close2 (FILE2 handle)
     closedir2();
     return -1;
 }
+int read_direct_block(DWORD blockToRead, char *buffer, int size)
+{
+    if (blockToRead != -1)
+    {
+        record tempRecord;
+        node* tempNode = malloc(sizeof(node));
+
+        BYTE* buffer2 = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+
+        int sectorToRead = blockToRead * Super.blockSize;
+
+        int i = 0;
+        int j = 0;
+        for (i = 0; i < Super.blockSize; i++)
+        {
+            read_sector(sectorToRead + i, buffer2);
+
+            for (j = 0; j < SECTOR_SIZE; j++)
+            {
+                if(bytesRead < size)
+                {
+                    memcpy(&buffer[current_pointer], &buffer2[j * sizeof(BYTE)], sizeof(BYTE));
+                    bytesRead += 1;
+                    current_pointer += 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
+        return 0;
+    }
+    else
+    {
+        return 0;
+    }
+
+}
+
+int read_simple_indirect_block(DWORD blockToRead, char *buffer, int size)
+{
+    if (blockToRead != -1)
+    {
+        int initialBlock = 0;
+        record tempRecord;
+        node* tempNode;
+        DWORD tempBlockToRead = 0;
+
+        BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+
+        int pointers_per_sector = roundUp(SECTOR_SIZE / sizeof(DWORD));
+
+        int sectorToRead = blockToRead * Super.blockSize;
+
+        int i = 0;
+        int j = 0;
+
+        for (i = 0; i < Super.blockSize; i++)
+        {
+            read_sector(sectorToRead + i, buffer);
+
+            for (j = 0; j < pointers_per_sector; j++)
+            {
+                memcpy(&tempBlockToRead, &buffer[j * sizeof(DWORD)], sizeof(DWORD));
+                read_direct(tempBlockToRead);
+            }
+        }
+        return 0;
+    }
+    else
+    {
+        return 0;
+    }
+
+}
+
+int read_double_indirect_block(DWORD blockToRead, char *buffer, int size)
+{
+    if (blockToRead != -1)
+    {
+        int initialBlock = 0;
+        record tempRecord;
+        node* tempNode;
+        DWORD tempBlockToRead = 0;
+        DWORD tempPointer = 0;
+
+        if (mountedPartition == 0)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartZero;
+        }
+        else if (mountedPartition == 1)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartUm;
+        }
+        else if (mountedPartition == 2)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartDois;
+        }
+        else if (mountedPartition == 3)
+        {
+            initialBlock = mbrData.endPrimeiroBlocoPartTres;
+        }
+
+        BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
+//        read_sector(initialBlock, buffer);
+//        memcpy(&Super, buffer, sizeof(superbloco));
+
+        int pointers_per_sector = roundUp(SECTOR_SIZE / sizeof(DWORD));
+        //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
+
+        int sectorToRead = blockToRead * Super.blockSize;
+
+        int i = 0;
+        int j = 0;
+
+        for (i = 0; i < Super.blockSize; i++)
+        {
+            read_sector(sectorToRead + i, buffer);
+
+            for (j = 0; j < pointers_per_sector; j++)
+            {
+                memcpy(&tempPointer, &buffer[j * sizeof(DWORD)], sizeof(DWORD));
+                read_simple_indirect(tempPointer);
+            }
+        }
+        return 0;
+    }
+    else
+    {
+        return 0;
+    }
+
+}
 //
 ///*-----------------------------------------------------------------------------
 //Função:	Função usada para realizar a leitura de uma certa quantidade
@@ -937,6 +1074,33 @@ int close2 (FILE2 handle)
 //-----------------------------------------------------------------------------*/
 int read2 (FILE2 handle, char *buffer, int size)
 {
+    initT2FS();
+    inode fileiNode;
+
+    node* file = malloc(sizeof(node));
+    int fileIndex;
+
+    if (!dir_is_open)
+    {
+        return -1;
+    }
+
+    fileIndex = getIndexByHandle(files_in_dir, handle);
+    printf("File index = %d\n", fileIndex);
+//    printList(files_in_dir);
+    file = searchList(opened_files, fileIndex);
+
+    if (file != NULL)
+    {
+
+
+
+
+
+
+    }
+
+
     initT2FS();
     closedir2();
     return -1;
@@ -957,34 +1121,12 @@ int read_direct(DWORD blockToRead)
 {
     if (blockToRead != -1)
     {
-//        int initialBlock = 0;
         record tempRecord;
         node* tempNode = malloc(sizeof(node));
 
-//        if (mountedPartition == 0)
-//        {
-//            initialBlock = mbrData.endPrimeiroBlocoPartZero;
-//        }
-//        else if (mountedPartition == 1)
-//        {
-//            initialBlock = mbrData.endPrimeiroBlocoPartUm;
-//        }
-//        else if (mountedPartition == 2)
-//        {
-//            initialBlock = mbrData.endPrimeiroBlocoPartDois;
-//        }
-//        else if (mountedPartition == 3)
-//        {
-//            initialBlock = mbrData.endPrimeiroBlocoPartTres;
-//        }
-
         BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
-//        int initialSector = initialBlock * Super.
-//        read_sector(initialBlock, buffer);
-//        memcpy(&Super, buffer, sizeof(superbloco));
 
         int records_per_sector = roundUp(SECTOR_SIZE / sizeof(record));
-        //printf("RECORD PER SECTOR = %d\n", records_per_sector); printa 32, ta certo
 
         int sectorToRead = blockToRead * Super.blockSize;
 
@@ -1001,7 +1143,6 @@ int read_direct(DWORD blockToRead)
                     memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
 
                     tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber, 0, current_handle, 0);
-                    printf("Temp node criado\n");
                     current_handle += 1;
                     files_in_dir = appendToList(files_in_dir, tempNode);
 
@@ -1310,7 +1451,6 @@ int hln2(char *linkname, char *filename)
 
     if (file != NULL)
     {
-        printf("num eh null\n");
         int inodes_per_sector = roundUp((SECTOR_SIZE) / 32.0);
 
         int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
@@ -1336,11 +1476,11 @@ int hln2(char *linkname, char *filename)
         recordHardLink.inodeNumber = iNodeNumber;
 
         read_sector(firstSectorInodeArea + inodeSector, buffer);
-        memcpy(&fileiNode, buffer[sizeof(inode) * inodeIndexInsideSector], sizeof(inode));
+        memcpy(&fileiNode, &buffer[sizeof(inode) * inodeIndexInsideSector], sizeof(inode));
 
         fileiNode.RefCounter += 1;
 
-        memcpy(buffer[sizeof(inode) * inodeIndexInsideSector], &fileiNode, sizeof(inode));
+        memcpy(&buffer[sizeof(inode) * inodeIndexInsideSector], &fileiNode, sizeof(inode));
         write_sector(firstSectorInodeArea + inodeSector, buffer);
         writeRecToDir(recordHardLink);
 
