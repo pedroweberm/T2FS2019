@@ -842,6 +842,8 @@ FILE2 create2 (char *filename)
         newRecord.Nao_usado[0] = dummy;
         newRecord.Nao_usado[1] = dummy;
 
+        printf(" antes do create\n");
+
         node* newNode = createNode(newRecord.TypeVal, newRecord.name, newRecord.Nao_usado, newRecord.inodeNumber, current_handle, 0, 0);
         current_handle += 1;
         printf(" depois do create\n");
@@ -955,26 +957,26 @@ int read_direct(DWORD blockToRead)
 {
     if (blockToRead != -1)
     {
-        int initialBlock = 0;
+//        int initialBlock = 0;
         record tempRecord;
-        node* tempNode;
+        node* tempNode = malloc(sizeof(node));
 
-        if (mountedPartition == 0)
-        {
-            initialBlock = mbrData.endPrimeiroBlocoPartZero;
-        }
-        else if (mountedPartition == 1)
-        {
-            initialBlock = mbrData.endPrimeiroBlocoPartUm;
-        }
-        else if (mountedPartition == 2)
-        {
-            initialBlock = mbrData.endPrimeiroBlocoPartDois;
-        }
-        else if (mountedPartition == 3)
-        {
-            initialBlock = mbrData.endPrimeiroBlocoPartTres;
-        }
+//        if (mountedPartition == 0)
+//        {
+//            initialBlock = mbrData.endPrimeiroBlocoPartZero;
+//        }
+//        else if (mountedPartition == 1)
+//        {
+//            initialBlock = mbrData.endPrimeiroBlocoPartUm;
+//        }
+//        else if (mountedPartition == 2)
+//        {
+//            initialBlock = mbrData.endPrimeiroBlocoPartDois;
+//        }
+//        else if (mountedPartition == 3)
+//        {
+//            initialBlock = mbrData.endPrimeiroBlocoPartTres;
+//        }
 
         BYTE* buffer = (BYTE *) malloc(sizeof(BYTE) * SECTOR_SIZE);
 //        int initialSector = initialBlock * Super.
@@ -999,24 +1001,18 @@ int read_direct(DWORD blockToRead)
                     memcpy(&tempRecord, &buffer[j * sizeof(record)], sizeof(record));
 
                     tempNode = createNode(tempRecord.TypeVal, tempRecord.name, tempRecord.Nao_usado, tempRecord.inodeNumber, 0, current_handle, 0);
+                    printf("Temp node criado\n");
                     current_handle += 1;
-
-                    if(appendToList(files_in_dir, tempNode) != 0)
-                    {
-                        return -1;
-                    }
+                    files_in_dir = appendToList(files_in_dir, tempNode);
 
                     recordsRead += 1;
                 }
                 else
                 {
-                    printf("Terminei de ler todos os blocos do diretorio.\n");
                     recordsRead = 0;
                     recordsToRead = 0;
                 }
-
             }
-            printf("Alcancei o final do setor %d do bloco %d", sectorToRead + i, blockToRead);
         }
         return 0;
     }
@@ -1179,10 +1175,14 @@ DIR2 opendir2 (void)
 
     recordsToRead = iNodeDir.bytesFileSize / sizeof(record);
 
-    read_direct(direct1);
-    read_direct(direct2);
-    read_simple_indirect(simpleIndirect);
-    read_double_indirect(doubleIndirect);
+    if (iNodeDir.bytesFileSize > 0)
+    {
+        printf("Bytes > 0\n");
+        read_direct(direct1);
+        read_direct(direct2);
+        read_simple_indirect(simpleIndirect);
+        read_double_indirect(doubleIndirect);
+    }
 
     dir_is_open = 1;
     return 0;
@@ -1303,12 +1303,14 @@ int hln2(char *linkname, char *filename)
 
     fileIndex = getIndex(files_in_dir, filename);
     printf("File index = %d\n", fileIndex);
+//    printList(files_in_dir);
     file = searchList(files_in_dir, fileIndex);
 
-    printf("%s\n", file->data->name);
+
 
     if (file != NULL)
     {
+        printf("num eh null\n");
         int inodes_per_sector = roundUp((SECTOR_SIZE) / 32.0);
 
         int firstBlockBitmapFreeblocks = initialBlock + Super.superblockSize;
@@ -1342,7 +1344,7 @@ int hln2(char *linkname, char *filename)
         write_sector(firstSectorInodeArea + inodeSector, buffer);
         writeRecToDir(recordHardLink);
 
-        printf("InodeNumber file = %d, inodenumvber do harrrrrrrrrdlink = %d\n\ncara", file->data->inodeNumber, iNodeNumber);
+//        printf("InodeNumber file = %d, inodenumvber do harrrrrrrrrdlink = %d\n\ncara", file->data->inodeNumber, iNodeNumber);
 
         closedir2();
         return 0;

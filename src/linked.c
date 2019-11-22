@@ -9,7 +9,7 @@ void printList(struct Node* n)
 {
     while (n != NULL)
     {
-        printf(" %s ", n->data->name);
+        printf("%s \n", n->data->name);
         n = n->next;
     }
 }
@@ -21,17 +21,15 @@ struct Node* createLinkedList()
 
 struct Node* createNode(BYTE TypeVal, char name[], DWORD Nao_usado[2], DWORD inodeNumber, int handle, int current_pointer, int isOpen)
 {
-    printf(" Antesd f rgstr fgsgsdgfsd\n");
     struct Node* newNode = (struct Node*) malloc(sizeof(struct Node));
+    struct t2fs_record* record = (struct t2fs_record*) malloc(sizeof(struct t2fs_record));
 
-    newNode->data->TypeVal = TypeVal;
+    record->TypeVal = TypeVal;
+    strcpy(record->name, name);
+    memcpy(record->Nao_usado, Nao_usado, 2 * sizeof(DWORD));
+    record->inodeNumber = inodeNumber;
+    newNode->data = record;
 
-    strcpy(newNode->data->name, name);
-
-    memcpy(newNode->data->Nao_usado, Nao_usado, 2 * sizeof(DWORD));
-        printf(" despues doo emme cpy\n");
-
-    newNode->data->inodeNumber = inodeNumber;
     newNode->handle = handle;
     newNode->current_pointer = current_pointer;
     newNode->isOpen = isOpen;
@@ -91,13 +89,15 @@ struct Node* searchList(struct Node* n, int current_pointer)
     int i = 0;
     if (aux_n != NULL)
     {
-        while(aux_n->next != NULL)
+        while(aux_n != NULL)
         {
             if(i == current_pointer)
             {
+                printf("Chegou no indice\n");
                 return aux_n;
             }
-            else {
+            else
+            {
                 i++;
                 aux_n = aux_n->next;
             }
@@ -114,13 +114,12 @@ int getIndex(struct Node* n, char* nodeName)
 {
     struct Node* aux_n = n;
     int i = 0;
-    printf("sal\n");
-    printf("Node name passado = %s\n", nodeName);
+//    printf("sal\n");
+//    printf("Node name passado = %s\n", nodeName);
     if (aux_n != NULL)
     {
-        while(aux_n != NULL)
+        while(aux_n)
         {
-            printf("Node name atual = %s\n", aux_n->data->name);
             if (strcmp(aux_n->data->name, nodeName))
             {
                 return i;
